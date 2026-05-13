@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{% block title %}StarTicket{% endblock %}</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css"
+    />
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+      }
+      .navbar {
+        background-color: #fff;
+        padding: 10px 20px;
+      }
+      .navbar-brand img {
+        height: 40px;
+      }
+      .navbar-nav .nav-link {
+        color: #000;
+      }
+      .banner {
+        background-color: #f8f9fa;
+        padding: 20px;
+        text-align: center;
+      }
+      .banner img {
+        max-width: 100%;
+        height: auto;
+      }
+      .section-title {
+        font-size: 24px;
+        font-weight: bold;
+        margin: 20px 0;
+      }
+      .card img {
+        height: 200px;
+        object-fit: cover;
+      }
+      .footer {
+        background-color: #343a40;
+        color: #f8f9fa;
+        padding: 20px 0;
+      }
+      .footer a {
+        color: #f8f9fa;
+        text-decoration: none;
+      }
+      .footer a:hover {
+        text-decoration: underline;
+      }
+      .footer .social-icons i {
+        font-size: 24px;
+        margin: 0 10px;
+        transition: color 0.3s;
+      }
+      .footer .social-icons i:hover {
+        color: #28a745;
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+      <div class="container">
+        <a class="navbar-brand" href="/"
+          ><img
+            src="data:image/png;base64,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"
+            alt="logo"
+            height="40"
+            width="45"
+          />
+          StarTicket</a
+        >
+        <button
+          class="navbar-toggler"
+          type="button"
+          data-toggle="collapse"
+          data-target="#navbarNav"
+          aria-controls="navbarNav"
+          aria-expanded="false"
+          aria-label="Toggle navigation"
+        >
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+          <ul class="navbar-nav ml-auto">
+            {% if user.is_authenticated %}
+            <li class="nav-item">
+              <a class="nav-link" href="/">Home</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="/movies">Movies</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="{% url 'profile' %}">Profile</a>
+            </li>
+            <li class="nav-item">
+              <form method="Post" action="{% url 'logout' %}">
+                {% csrf_token %}
+                <button
+                  type="submit"
+                  class="nav-link"
+                  style="border: none; background: none"
+                >
+                  Logout
+                </button>
+              </form>
+            </li>
+            {% else %}
+            <li class="nav-item">
+              <a class="nav-link" href="{% url 'login' %}">Login</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="{% url 'register' %}">Register</a>
+            </li>
+            {% endif %}
+          </ul>
+        </div>
+      </div>
+    </nav>
+
+    <div class="container">{% block content %} {% endblock %}</div>
+    <footer class="footer mt-5">
+      <div class="container">
+        <div class="row">
+          <div class="col-md-4 mb-4 mb-md-0">
+            <h5>About Us</h5>
+            <p>
+              We provide the best movie experience in town. Book your tickets
+              now and enjoy the show!
+            </p>
+          </div>
+          <div class="col-md-4 mb-4 mb-md-0">
+            <h5>Quick Links</h5>
+            <ul class="list-unstyled">
+              <li><a href="#">Home</a></li>
+              <li><a href="#">Movies</a></li>
+              <li><a href="#">Book Tickets</a></li>
+              <li><a href="#">Contact</a></li>
+            </ul>
+          </div>
+          <div class="col-md-4">
+            <h5>Follow Us</h5>
+            <div class="social-icons">
+              <a href="#"><i class="fab fa-facebook"></i></a>
+              <a href="#"><i class="fab fa-twitter"></i></a>
+              <a href="#"><i class="fab fa-instagram"></i></a>
+            </div>
+          </div>
+        </div>
+        <hr class="mt-4 mb-4" />
+        <div class="text-center">
+          <p>&copy; 2026 Cinema Booking. All rights reserved.</p>
+        </div>
+      </div>
+    </footer>
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.11.0/umd/popper.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script>
+  </body>
+</html>
