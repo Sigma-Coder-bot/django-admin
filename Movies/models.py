@@ -9,7 +9,7 @@ def validate_youtube_url(value):
         return
     pattern = r'^(https?://)?(www\.)?(youtube\.com/watch\?v=|youtu\.be/)[a-zA-Z0-9_-]{11}$'
     if not re.match(pattern, value):
-        raise ValidationError('https://www.youtube.com/live/9bpfj7uLMNM?si=7oA85GnBU7rI8xmt')
+        raise ValidationError('Enter a valid YouTube URL.')
 
 class Movie(models.Model):
     name = models.CharField(max_length=255)
