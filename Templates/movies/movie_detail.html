@@ -1,0 +1,94 @@
+{% block content %}
+<div class="container mt-4">
+    <h2>{{ movie.name }}</h2>
+
+    <!-- Trailer Section -->
+    <div class="trailer-section mt-4">
+        <h4>Official Trailer</h4>
+
+        {% if embed_url %}
+        <!-- Lazy loaded iframe prevents performance issues -->
+        <div class="ratio ratio-16x9 trailer-wrapper">
+            <iframe
+                id="trailer-frame"
+                src=""
+                data-src="{{ embed_url }}"
+                title="{{ movie.name }} Trailer"
+                loading="lazy"
+                allowfullscreen
+                referrerpolicy="strict-origin-when-cross-origin"
+                sandbox="allow-scripts allow-same-origin allow-presentation"
+                style="border:0; width:100%; height:100%;">
+            </iframe>
+        </div>
+
+        <!-- Fallback shown until user clicks play -->
+        <div id="trailer-placeholder" class="trailer-placeholder text-center" 
+             style="background:#000; height:400px; display:flex; 
+                    align-items:center; justify-content:center; cursor:pointer;"
+             onclick="loadTrailer()">
+            <div>
+                <div style="font-size:60px;">▶</div>
+                <p style="color:white;">Click to load trailer</p>
+                <small style="color:#aaa;">
+                    Trailer loads on demand to save your data
+                </small>
+            </div>
+        </div>
+
+        {% else %}
+        <!-- Graceful fallback if no trailer available -->
+        <div class="alert alert-secondary text-center mt-3" 
+             style="height:200px; display:flex; 
+                    align-items:center; justify-content:center;">
+            <div>
+                <h5>🎬 Trailer Unavailable</h5>
+                <p class="text-muted mb-0">
+                    No trailer available for this movie at the moment.
+                </p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    function loadTrailer() {
+        const frame = document.getElementById('trailer-frame');
+        const placeholder = document.getElementById('trailer-placeholder');
+
+        if (frame && placeholder) {
+            // Only load src when user clicks — lazy loading
+            frame.src = frame.dataset.src;
+            placeholder.style.display = 'none';
+            frame.style.display = 'block';
+        }
+    }
+
+    // Handle iframe load error — fallback
+    document.addEventListener('DOMContentLoaded', function() {
+        const frame = document.getElementById('trailer-frame');
+        if (frame) {
+            frame.addEventListener('error', function() {
+                const wrapper = document.querySelector('.trailer-wrapper');
+                if (wrapper) {
+                    wrapper.innerHTML = `
+                        <div class="alert alert-warning text-center p-5">
+                            <h5>⚠️ Trailer Unavailable</h5>
+                            <p>This trailer has been removed or is unavailable.</p>
+                        </div>`;
+                }
+            });
+        }
+    });
+</script>
+
+<style>
+    .trailer-wrapper iframe {
+        display: none;
+    }
+    .trailer-placeholder:hover {
+        opacity: 0.9;
+    }
+</style>
+{% endblock %}

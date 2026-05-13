@@ -53,3 +53,12 @@ def book_seats(request,theater_id):
 
 
 
+from Movies.utils import get_youtube_embed_url
+
+def movie_detail(request, movie_id):
+    movie = get_object_or_404(Movie, id=movie_id)
+    embed_url = get_youtube_embed_url(movie.trailer_url)
+    return render(request, 'movies/movie_detail.html', {
+        'movie': movie,
+        'embed_url': embed_url,
+    })
