@@ -162,8 +162,12 @@ def initiate_payment(request, theater_id):
                 payment.save()
 
         except Exception as e:
-            messages.error(request, f"Payment initiation failed: {str(e)}")
-            return redirect('book_seats', theater_id=theater_id)
+            # Show exact error instead of redirecting
+            return render(request, 'movies/seat_selection.html', {
+                'theaters': theaters,
+                'seats': Seat.objects.filter(theater=theaters),
+                'error': f"EXACT ERROR: {str(e)}"
+            })
 
         return render(request, 'movies/payment.html', {
             'theaters': theaters,
@@ -176,7 +180,6 @@ def initiate_payment(request, theater_id):
         })
 
     return redirect('book_seats', theater_id=theater_id)
-
 
 @login_required(login_url='/login/')
 def payment_success(request):
