@@ -6,7 +6,13 @@ class MoviesConfig(AppConfig):
 
     def ready(self):
         import os
-        # Only start scheduler if DATABASE_URL is set (i.e. on Render)
         if os.environ.get('DATABASE_URL'):
-            from Movies.scheduler import start
-            start()
+            # Delay scheduler start until after migrations
+            from django.db import connection
+            try:
+                tables = connection.introspection.table_names()
+                if 'django_apscheduler_djangojob' in tables:
+                    from Movies.scheduler import start
+                    start()
+            except Exception:
+                pass
