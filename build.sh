@@ -5,5 +5,6 @@ pip install -r requirements.txt
 python manage.py collectstatic --no-input
 python manage.py makemigrations Movies
 python manage.py makemigrations --merge --no-input
-python manage.py migrate --fake-initial
+python manage.py migrate --fake Movies
+python manage.py migrate
 python manage.py createsu
