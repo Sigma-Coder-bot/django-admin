@@ -114,6 +114,14 @@ def book_seats(request, theater_id):
         messages.success(request, "Seats booked successfully!")
         return redirect('profile')
 
+    # Instead of redirecting to profile, show confirmation page
+        return render(request, 'movies/confirm_seats.html', {
+            'theaters': theaters,
+            'selected_seats': selected_seats,
+            'seats_info': [Seat.objects.get(id=s) for s in selected_seats],
+            'total_amount': 200 * len(selected_seats),
+        })
+
     return render(request, 'movies/seat_selection.html', {
         'theaters': theaters,
         "seats": seats
