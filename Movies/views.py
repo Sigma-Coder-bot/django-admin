@@ -118,6 +118,14 @@ def book_seats(request, theater_id):
 
 @login_required(login_url='/login/')
 def initiate_payment(request, theater_id):
+    # Debug — remove after fixing
+    key_id = os.environ.get('rzp_test_SqBAfb0AZJpYSy')
+    key_secret = os.environ.get('9A3UpojB7PcHQ2xgFi3qjlI7')
+    print(f"KEY_ID: {key_id}")
+    print(f"KEY_SECRET exists: {bool(key_secret)}")
+    
+    theaters = get_object_or_404(Theater, id=theater_id)
+    ...
     theaters = get_object_or_404(Theater, id=theater_id)
 
     if request.method == 'POST':
