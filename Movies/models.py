@@ -1,9 +1,9 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 import re
 
-# ← Add this validator
 def validate_youtube_url(value):
     if not value:
         return
@@ -17,16 +17,11 @@ class Movie(models.Model):
     rating = models.DecimalField(max_digits=3, decimal_places=1)
     cast = models.TextField()
     description = models.TextField(blank=True, null=True)
-    trailer_url = models.URLField(  # ← Add this field
-        blank=True,
-        null=True,
-        validators=[validate_youtube_url]
-    )
+    trailer_url = models.URLField(blank=True, null=True, validators=[validate_youtube_url])
 
     def __str__(self):
         return self.name
 
-# rest of your models stay exactly the same...
 class Theater(models.Model):
     name = models.CharField(max_length=255)
     movie = models.ForeignKey(Movie, on_delete=models.CASCADE, related_name='theaters')
@@ -42,6 +37,19 @@ class Seat(models.Model):
 
     def __str__(self):
         return f'{self.seat_number} in {self.theater.name}'
+
+class SeatReservation(models.Model):
+    """Temporarily locks a seat for 2 minutes during booking"""
+    seat = models.OneToOneField(Seat, on_delete=models.CASCADE, related_name='reservation')
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    reserved_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+
+    def is_expired(self):
+        return timezone.now() > self.expires_at
+
+    def __str__(self):
+        return f'Reservation by {self.user.username} for {self.seat.seat_number}'
 
 class Booking(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
