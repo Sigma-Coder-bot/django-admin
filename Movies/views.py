@@ -1,11 +1,27 @@
+import razorpay
+import uuid
+import os
+import json
+import hmac
+import hashlib
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 from django.contrib import messages
+from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse, HttpResponse
 from datetime import timedelta
-from .models import Movie, Theater, Seat, Booking, SeatReservation
+from .models import Movie, Theater, Seat, Booking, SeatReservation, Payment
 from Movies.utils import get_youtube_embed_url
+from .payment_utils import (
+    get_razorpay_client,
+    generate_idempotency_key,
+    create_razorpay_order,
+    verify_payment_signature
+)
+
+TICKET_PRICE = 200
 
 def movie_list(request):
     search_query = request.GET.get('search')
@@ -31,10 +47,7 @@ def movie_detail(request, movie_id):
 @login_required(login_url='/login/')
 def book_seats(request, theater_id):
     theaters = get_object_or_404(Theater, id=theater_id)
-
-    # Auto-release expired reservations before showing seats
     SeatReservation.objects.filter(expires_at__lt=timezone.now()).delete()
-
     seats = Seat.objects.filter(theater=theaters)
 
     if request.method == 'POST':
@@ -51,30 +64,23 @@ def book_seats(request, theater_id):
         try:
             with transaction.atomic():
                 for seat_id in selected_seats:
-                    # Row-level locking with select_for_update
                     seat = Seat.objects.select_for_update().get(
                         id=seat_id,
                         theater=theaters
                     )
-
-                    # Check if already booked
                     if seat.is_booked:
                         error_seats.append(seat.seat_number)
                         continue
-
-                    # Check if reserved by another user
                     try:
                         existing = SeatReservation.objects.get(seat=seat)
                         if not existing.is_expired() and existing.user != request.user:
                             error_seats.append(f"{seat.seat_number} (reserved)")
                             continue
                         else:
-                            # Expired or same user — delete old reservation
                             existing.delete()
                     except SeatReservation.DoesNotExist:
                         pass
 
-                    # Create 2-minute reservation lock
                     SeatReservation.objects.create(
                         seat=seat,
                         user=request.user,
@@ -89,21 +95,6 @@ def book_seats(request, theater_id):
                         'error': error_message
                     })
 
-                # Confirm booking — convert reservations to bookings
-                for seat_id in selected_seats:
-                    seat = Seat.objects.select_for_update().get(id=seat_id)
-                    if not seat.is_booked:
-                        Booking.objects.create(
-                            user=request.user,
-                            seat=seat,
-                            movie=theaters.movie,
-                            theater=theaters
-                        )
-                        seat.is_booked = True
-                        seat.save()
-                        # Remove reservation after booking confirmed
-                        SeatReservation.objects.filter(seat=seat).delete()
-
         except Exception as e:
             return render(request, 'movies/seat_selection.html', {
                 'theaters': theaters,
@@ -111,40 +102,22 @@ def book_seats(request, theater_id):
                 'error': f"Booking failed: {str(e)}"
             })
 
-        messages.success(request, "Seats booked successfully!")
-        return redirect('profile')
-
-    # Instead of redirecting to profile, show confirmation page
+        # Show confirmation page before payment
         return render(request, 'movies/confirm_seats.html', {
             'theaters': theaters,
             'selected_seats': selected_seats,
             'seats_info': [Seat.objects.get(id=s) for s in selected_seats],
-            'total_amount': 200 * len(selected_seats),
+            'total_amount': TICKET_PRICE * len(selected_seats),
         })
 
     return render(request, 'movies/seat_selection.html', {
         'theaters': theaters,
         "seats": seats
     })
-import razorpay
-import uuid
-import os
-import json
-from django.views.decorators.csrf import csrf_exempt
-from django.http import JsonResponse, HttpResponse
-from .payment_utils import (
-    get_razorpay_client,
-    generate_idempotency_key,
-    create_razorpay_order,
-    verify_payment_signature
-)
-from .models import Payment
 
-TICKET_PRICE = 200  # Rs. 200 per seat
 
 @login_required(login_url='/login/')
 def initiate_payment(request, theater_id):
-    """Create Razorpay order and show payment page"""
     theaters = get_object_or_404(Theater, id=theater_id)
 
     if request.method == 'POST':
@@ -154,14 +127,12 @@ def initiate_payment(request, theater_id):
             messages.error(request, "No seats selected!")
             return redirect('book_seats', theater_id=theater_id)
 
-        # Generate idempotency key — prevents duplicate orders
         idempotency_key = generate_idempotency_key(
             request.user.id,
             theater_id,
             selected_seats
         )
 
-        # Check if payment already exists (duplicate prevention)
         existing_payment = Payment.objects.filter(
             idempotency_key=idempotency_key,
             status='success'
@@ -171,14 +142,10 @@ def initiate_payment(request, theater_id):
             messages.warning(request, "You have already booked these seats!")
             return redirect('profile')
 
-        # Calculate total amount
         total_amount = TICKET_PRICE * len(selected_seats)
 
         try:
-            # Create Razorpay order
             order = create_razorpay_order(total_amount, idempotency_key)
-
-            # Save pending payment
             payment, created = Payment.objects.get_or_create(
                 idempotency_key=idempotency_key,
                 defaults={
@@ -190,9 +157,7 @@ def initiate_payment(request, theater_id):
                     'seats_data': selected_seats,
                 }
             )
-
             if not created:
-                # Update existing pending payment
                 payment.razorpay_order_id = order['id']
                 payment.save()
 
@@ -215,20 +180,17 @@ def initiate_payment(request, theater_id):
 
 @login_required(login_url='/login/')
 def payment_success(request):
-    """Verify payment signature and confirm booking"""
     if request.method == 'POST':
         razorpay_order_id = request.POST.get('razorpay_order_id')
         razorpay_payment_id = request.POST.get('razorpay_payment_id')
         razorpay_signature = request.POST.get('razorpay_signature')
 
-        # Get payment record
         try:
             payment = Payment.objects.get(razorpay_order_id=razorpay_order_id)
         except Payment.DoesNotExist:
             messages.error(request, "Payment record not found!")
             return redirect('home')
 
-        # Verify signature SERVER-SIDE — prevents fraud
         is_valid = verify_payment_signature(
             razorpay_order_id,
             razorpay_payment_id,
@@ -238,44 +200,35 @@ def payment_success(request):
         if not is_valid:
             payment.status = 'failed'
             payment.save()
-            messages.error(request, "Payment verification failed! Possible fraud attempt.")
+            messages.error(request, "Payment verification failed!")
             return redirect('home')
 
-        # Check for duplicate webhook (idempotency)
         if payment.status == 'success':
             messages.info(request, "Payment already processed!")
             return redirect('profile')
 
         try:
             with transaction.atomic():
-                # Confirm all seats
                 for seat_id in payment.seats_data:
                     seat = Seat.objects.select_for_update().get(id=seat_id)
-
                     if seat.is_booked:
                         continue
-
                     booking = Booking.objects.create(
                         user=request.user,
                         seat=seat,
                         movie=payment.theater.movie,
                         theater=payment.theater,
-                        price=TICKET_PRICE
                     )
                     seat.is_booked = True
                     seat.save()
-
-                    # Link first booking to payment
                     if not payment.booking:
                         payment.booking = booking
 
-                # Update payment status
                 payment.razorpay_payment_id = razorpay_payment_id
                 payment.razorpay_signature = razorpay_signature
                 payment.status = 'success'
                 payment.save()
 
-                # Release seat reservations
                 SeatReservation.objects.filter(
                     seat_id__in=payment.seats_data
                 ).delete()
@@ -283,7 +236,7 @@ def payment_success(request):
         except Exception as e:
             payment.status = 'failed'
             payment.save()
-            messages.error(request, f"Booking failed after payment: {str(e)}")
+            messages.error(request, f"Booking failed: {str(e)}")
             return redirect('home')
 
         messages.success(request, "Payment successful! Seats booked!")
@@ -293,7 +246,6 @@ def payment_success(request):
 
 
 def payment_failed(request):
-    """Handle payment failure"""
     razorpay_order_id = request.GET.get('order_id')
     if razorpay_order_id:
         Payment.objects.filter(
@@ -305,15 +257,9 @@ def payment_failed(request):
 
 @csrf_exempt
 def razorpay_webhook(request):
-    """
-    Handle Razorpay webhooks securely.
-    Verifies webhook signature to prevent replay attacks.
-    """
     if request.method == 'POST':
         webhook_secret = os.environ.get('RAZORPAY_WEBHOOK_SECRET', '')
         webhook_signature = request.headers.get('X-Razorpay-Signature', '')
-
-        # Verify webhook signature
         body = request.body
         generated_signature = hmac.new(
             webhook_secret.encode(),
@@ -330,12 +276,7 @@ def razorpay_webhook(request):
         if event == 'payment.captured':
             order_id = payload['payload']['payment']['entity']['order_id']
             payment_id = payload['payload']['payment']['entity']['id']
-
-            # Idempotency — skip if already processed
-            payment = Payment.objects.filter(
-                razorpay_order_id=order_id
-            ).first()
-
+            payment = Payment.objects.filter(razorpay_order_id=order_id).first()
             if payment and payment.status != 'success':
                 payment.razorpay_payment_id = payment_id
                 payment.status = 'success'
