@@ -118,3 +118,227 @@ def book_seats(request, theater_id):
         'theaters': theaters,
         "seats": seats
     })
+import razorpay
+import uuid
+import os
+import json
+from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse, HttpResponse
+from .payment_utils import (
+    get_razorpay_client,
+    generate_idempotency_key,
+    create_razorpay_order,
+    verify_payment_signature
+)
+from .models import Payment
+
+TICKET_PRICE = 200  # Rs. 200 per seat
+
+@login_required(login_url='/login/')
+def initiate_payment(request, theater_id):
+    """Create Razorpay order and show payment page"""
+    theaters = get_object_or_404(Theater, id=theater_id)
+
+    if request.method == 'POST':
+        selected_seats = request.POST.getlist('seats')
+
+        if not selected_seats:
+            messages.error(request, "No seats selected!")
+            return redirect('book_seats', theater_id=theater_id)
+
+        # Generate idempotency key — prevents duplicate orders
+        idempotency_key = generate_idempotency_key(
+            request.user.id,
+            theater_id,
+            selected_seats
+        )
+
+        # Check if payment already exists (duplicate prevention)
+        existing_payment = Payment.objects.filter(
+            idempotency_key=idempotency_key,
+            status='success'
+        ).first()
+
+        if existing_payment:
+            messages.warning(request, "You have already booked these seats!")
+            return redirect('profile')
+
+        # Calculate total amount
+        total_amount = TICKET_PRICE * len(selected_seats)
+
+        try:
+            # Create Razorpay order
+            order = create_razorpay_order(total_amount, idempotency_key)
+
+            # Save pending payment
+            payment, created = Payment.objects.get_or_create(
+                idempotency_key=idempotency_key,
+                defaults={
+                    'user': request.user,
+                    'razorpay_order_id': order['id'],
+                    'amount': total_amount,
+                    'status': 'pending',
+                    'theater': theaters,
+                    'seats_data': selected_seats,
+                }
+            )
+
+            if not created:
+                # Update existing pending payment
+                payment.razorpay_order_id = order['id']
+                payment.save()
+
+        except Exception as e:
+            messages.error(request, f"Payment initiation failed: {str(e)}")
+            return redirect('book_seats', theater_id=theater_id)
+
+        return render(request, 'movies/payment.html', {
+            'theaters': theaters,
+            'selected_seats': selected_seats,
+            'total_amount': total_amount,
+            'razorpay_order_id': order['id'],
+            'razorpay_key_id': os.environ.get('RAZORPAY_KEY_ID'),
+            'payment': payment,
+            'user': request.user,
+        })
+
+    return redirect('book_seats', theater_id=theater_id)
+
+
+@login_required(login_url='/login/')
+def payment_success(request):
+    """Verify payment signature and confirm booking"""
+    if request.method == 'POST':
+        razorpay_order_id = request.POST.get('razorpay_order_id')
+        razorpay_payment_id = request.POST.get('razorpay_payment_id')
+        razorpay_signature = request.POST.get('razorpay_signature')
+
+        # Get payment record
+        try:
+            payment = Payment.objects.get(razorpay_order_id=razorpay_order_id)
+        except Payment.DoesNotExist:
+            messages.error(request, "Payment record not found!")
+            return redirect('home')
+
+        # Verify signature SERVER-SIDE — prevents fraud
+        is_valid = verify_payment_signature(
+            razorpay_order_id,
+            razorpay_payment_id,
+            razorpay_signature
+        )
+
+        if not is_valid:
+            payment.status = 'failed'
+            payment.save()
+            messages.error(request, "Payment verification failed! Possible fraud attempt.")
+            return redirect('home')
+
+        # Check for duplicate webhook (idempotency)
+        if payment.status == 'success':
+            messages.info(request, "Payment already processed!")
+            return redirect('profile')
+
+        try:
+            with transaction.atomic():
+                # Confirm all seats
+                for seat_id in payment.seats_data:
+                    seat = Seat.objects.select_for_update().get(id=seat_id)
+
+                    if seat.is_booked:
+                        continue
+
+                    booking = Booking.objects.create(
+                        user=request.user,
+                        seat=seat,
+                        movie=payment.theater.movie,
+                        theater=payment.theater,
+                        price=TICKET_PRICE
+                    )
+                    seat.is_booked = True
+                    seat.save()
+
+                    # Link first booking to payment
+                    if not payment.booking:
+                        payment.booking = booking
+
+                # Update payment status
+                payment.razorpay_payment_id = razorpay_payment_id
+                payment.razorpay_signature = razorpay_signature
+                payment.status = 'success'
+                payment.save()
+
+                # Release seat reservations
+                SeatReservation.objects.filter(
+                    seat_id__in=payment.seats_data
+                ).delete()
+
+        except Exception as e:
+            payment.status = 'failed'
+            payment.save()
+            messages.error(request, f"Booking failed after payment: {str(e)}")
+            return redirect('home')
+
+        messages.success(request, "Payment successful! Seats booked!")
+        return redirect('profile')
+
+    return redirect('home')
+
+
+def payment_failed(request):
+    """Handle payment failure"""
+    razorpay_order_id = request.GET.get('order_id')
+    if razorpay_order_id:
+        Payment.objects.filter(
+            razorpay_order_id=razorpay_order_id
+        ).update(status='failed')
+    messages.error(request, "Payment failed! Please try again.")
+    return redirect('home')
+
+
+@csrf_exempt
+def razorpay_webhook(request):
+    """
+    Handle Razorpay webhooks securely.
+    Verifies webhook signature to prevent replay attacks.
+    """
+    if request.method == 'POST':
+        webhook_secret = os.environ.get('RAZORPAY_WEBHOOK_SECRET', '')
+        webhook_signature = request.headers.get('X-Razorpay-Signature', '')
+
+        # Verify webhook signature
+        body = request.body
+        generated_signature = hmac.new(
+            webhook_secret.encode(),
+            body,
+            hashlib.sha256
+        ).hexdigest()
+
+        if not hmac.compare_digest(generated_signature, webhook_signature):
+            return HttpResponse(status=400)
+
+        payload = json.loads(body)
+        event = payload.get('event')
+
+        if event == 'payment.captured':
+            order_id = payload['payload']['payment']['entity']['order_id']
+            payment_id = payload['payload']['payment']['entity']['id']
+
+            # Idempotency — skip if already processed
+            payment = Payment.objects.filter(
+                razorpay_order_id=order_id
+            ).first()
+
+            if payment and payment.status != 'success':
+                payment.razorpay_payment_id = payment_id
+                payment.status = 'success'
+                payment.save()
+
+        elif event == 'payment.failed':
+            order_id = payload['payload']['payment']['entity']['order_id']
+            Payment.objects.filter(
+                razorpay_order_id=order_id
+            ).update(status='failed')
+
+        return HttpResponse(status=200)
+
+    return HttpResponse(status=405)

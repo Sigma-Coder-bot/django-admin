@@ -1,0 +1,75 @@
+{% extends "users/basic.html" %}
+{% block content %}
+<div class="container mt-5">
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h4>💳 Complete Payment</h4>
+        </div>
+        <div class="card-body text-center">
+            <h5>{{ theaters.movie.name }}</h5>
+            <p>{{ theaters.name }} | {{ theaters.time }}</p>
+            <hr>
+            <h3>Total: ₹{{ total_amount }}</h3>
+            <p class="text-muted">Secure payment powered by Razorpay</p>
+
+            <button id="pay-btn" class="btn btn-success btn-lg px-5">
+                Pay ₹{{ total_amount }}
+            </button>
+
+            <p class="mt-3">
+                <a href="{% url 'payment_failed' %}?order_id={{ razorpay_order_id }}"
+                   class="text-danger">Cancel Payment</a>
+            </p>
+        </div>
+    </div>
+</div>
+
+<!-- Hidden form to submit payment details -->
+<form id="payment-form" method="POST" action="{% url 'payment_success' %}">
+    {% csrf_token %}
+    <input type="hidden" name="razorpay_order_id" id="razorpay_order_id">
+    <input type="hidden" name="razorpay_payment_id" id="razorpay_payment_id">
+    <input type="hidden" name="razorpay_signature" id="razorpay_signature">
+</form>
+
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script>
+    var options = {
+        key: "{{ razorpay_key_id }}",
+        amount: "{{ total_amount }}00",
+        currency: "INR",
+        name: "StarTicket",
+        description: "Movie Ticket Booking",
+        order_id: "{{ razorpay_order_id }}",
+        handler: function (response) {
+            // Submit payment details to server for verification
+            document.getElementById('razorpay_order_id').value = response.razorpay_order_id;
+            document.getElementById('razorpay_payment_id').value = response.razorpay_payment_id;
+            document.getElementById('razorpay_signature').value = response.razorpay_signature;
+            document.getElementById('payment-form').submit();
+        },
+        prefill: {
+            name: "{{ user.get_full_name }}",
+            email: "{{ user.email }}",
+        },
+        theme: { color: "#28a745" },
+        modal: {
+            ondismiss: function() {
+                // User closed payment modal
+                window.location.href = "{% url 'payment_failed' %}?order_id={{ razorpay_order_id }}";
+            }
+        }
+    };
+
+    document.getElementById('pay-btn').onclick = function() {
+        var rzp = new Razorpay(options);
+        rzp.open();
+    };
+
+    // Auto-open payment on page load
+    window.onload = function() {
+        var rzp = new Razorpay(options);
+        rzp.open();
+    };
+</script>
+{% endblock %}

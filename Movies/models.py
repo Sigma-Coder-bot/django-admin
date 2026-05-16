@@ -57,6 +57,40 @@ class Booking(models.Model):
     movie = models.ForeignKey(Movie, on_delete=models.CASCADE)
     theater = models.ForeignKey(Theater, on_delete=models.CASCADE)
     booked_at = models.DateTimeField(auto_now_add=True)
+    price = models.DecimalField(max_digits=10, decimal_places=2, default=200.00)
 
     def __str__(self):
         return f'Booking by {self.user.username} for {self.seat.seat_number} at {self.theater.name}'
+    
+
+
+class Payment(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('success', 'Success'),
+        ('failed', 'Failed'),
+        ('cancelled', 'Cancelled'),
+        ('refunded', 'Refunded'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    booking = models.OneToOneField(
+        'Booking', on_delete=models.CASCADE,
+        null=True, blank=True,
+        related_name='payment'
+    )
+    razorpay_order_id = models.CharField(max_length=255, unique=True)
+    razorpay_payment_id = models.CharField(max_length=255, blank=True, null=True)
+    razorpay_signature = models.CharField(max_length=500, blank=True, null=True)
+    idempotency_key = models.CharField(max_length=255, unique=True)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    # Store seat and theater info for recovery
+    theater = models.ForeignKey(Theater, on_delete=models.CASCADE, null=True)
+    seats_data = models.JSONField(default=list)  # store seat IDs
+
+    def __str__(self):
+        return f'Payment {self.razorpay_order_id} - {self.status}'
