@@ -7,12 +7,12 @@ class MoviesConfig(AppConfig):
     def ready(self):
         import os
         if os.environ.get('DATABASE_URL'):
-            # Delay scheduler start until after migrations
-            from django.db import connection
             try:
+                from django.db import connection
                 tables = connection.introspection.table_names()
                 if 'django_apscheduler_djangojob' in tables:
                     from Movies.scheduler import start
                     start()
-            except Exception:
-                pass
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).error(f"Scheduler error: {e}")

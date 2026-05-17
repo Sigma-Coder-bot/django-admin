@@ -3,6 +3,6 @@ set -o errexit
 
 pip install -r requirements.txt
 python manage.py collectstatic --no-input
-python manage.py migrate --fake Movies 0004_merge_20260517_0314
+python manage.py migrate --fake Movies
 python manage.py migrate
 python manage.py createsu
