@@ -1,0 +1,262 @@
+{% extends "users/basic.html" %}
+{% block content %}
+<div class="container-fluid mt-4">
+
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>📊 Admin Analytics Dashboard</h2>
+        <div>
+            <span class="badge bg-success me-2">{{ user.username }}</span>
+            <a href="?refresh=1" class="btn btn-sm btn-outline-secondary">
+                🔄 Refresh Data
+            </a>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h6>Total Revenue</h6>
+                    <h3>₹{{ data.revenue.total.total|default:0 }}</h3>
+                    <small>{{ data.revenue.total.count|default:0 }} payments</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h6>Total Bookings</h6>
+                    <h3>{{ data.total_bookings }}</h3>
+                    <small>All time</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <h6>Total Users</h6>
+                    <h3>{{ data.total_users }}</h3>
+                    <small>Registered users</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <h6>Success Rate</h6>
+                    <h3>{{ data.cancellation_stats.success_rate }}%</h3>
+                    <small>Payment success</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Revenue Chart -->
+        <div class="col-md-8 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5>📈 Daily Revenue (Last 7 Days)</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="revenueChart" height="100"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cancellation Stats -->
+        <div class="col-md-4 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5>💳 Payment Stats</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="paymentChart"></canvas>
+                    <div class="mt-3">
+                        <div class="d-flex justify-content-between">
+                            <span>✅ Success</span>
+                            <strong>{{ data.cancellation_stats.success }}</strong>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span>❌ Failed</span>
+                            <strong>{{ data.cancellation_stats.failed }}</strong>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span>🚫 Cancelled</span>
+                            <strong>{{ data.cancellation_stats.cancelled }}</strong>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span>⏳ Pending</span>
+                            <strong>{{ data.cancellation_stats.pending }}</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Popular Movies -->
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5>🎬 Most Popular Movies</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Movie</th>
+                                <th>Bookings</th>
+                                <th>Revenue</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for movie in data.popular_movies %}
+                            <tr>
+                                <td>{{ forloop.counter }}</td>
+                                <td>{{ movie.name }}</td>
+                                <td>
+                                    <span class="badge bg-primary">
+                                        {{ movie.booking_count }}
+                                    </span>
+                                </td>
+                                <td>₹{{ movie.total_revenue|default:0 }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center text-muted">
+                                    No bookings yet
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Busiest Theaters -->
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5>🎭 Busiest Theaters</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Theater</th>
+                                <th>Movie</th>
+                                <th>Occupancy</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for theater in data.busiest_theaters %}
+                            <tr>
+                                <td>{{ theater.name }}</td>
+                                <td>{{ theater.movie }}</td>
+                                <td>
+                                    <div class="progress" style="height:20px;">
+                                        <div class="progress-bar bg-success"
+                                             style="width:{{ theater.occupancy_rate }}%">
+                                            {{ theater.occupancy_rate }}%
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="3" class="text-center text-muted">
+                                    No data yet
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Peak Booking Hours -->
+    <div class="row">
+        <div class="col-md-12 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5>⏰ Peak Booking Hours</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="hoursChart" height="60"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Revenue Chart
+    const revenueCtx = document.getElementById('revenueChart').getContext('2d');
+    new Chart(revenueCtx, {
+        type: 'line',
+        data: {
+            labels: [{% for d in data.revenue.daily %}'{{ d.day|date:"d M" }}',{% endfor %}],
+            datasets: [{
+                label: 'Revenue (₹)',
+                data: [{% for d in data.revenue.daily %}{{ d.total }},{% endfor %}],
+                borderColor: '#28a745',
+                backgroundColor: 'rgba(40,167,69,0.1)',
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } }
+        }
+    });
+
+    // Payment Pie Chart
+    const paymentCtx = document.getElementById('paymentChart').getContext('2d');
+    new Chart(paymentCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Success', 'Failed', 'Cancelled', 'Pending'],
+            datasets: [{
+                data: [
+                    {{ data.cancellation_stats.success }},
+                    {{ data.cancellation_stats.failed }},
+                    {{ data.cancellation_stats.cancelled }},
+                    {{ data.cancellation_stats.pending }}
+                ],
+                backgroundColor: ['#28a745', '#dc3545', '#ffc107', '#17a2b8']
+            }]
+        },
+        options: { responsive: true }
+    });
+
+    // Peak Hours Chart
+    const hoursCtx = document.getElementById('hoursChart').getContext('2d');
+    new Chart(hoursCtx, {
+        type: 'bar',
+        data: {
+            labels: [{% for h in data.peak_hours %}'{{ h.hour }}:00',{% endfor %}],
+            datasets: [{
+                label: 'Bookings',
+                data: [{% for h in data.peak_hours %}{{ h.count }},{% endfor %}],
+                backgroundColor: '#007bff'
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } }
+        }
+    });
+</script>
+{% endblock %}

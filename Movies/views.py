@@ -249,10 +249,34 @@ def payment_success(request):
             payment.save()
             messages.error(request, f"Booking failed: {str(e)}")
             return redirect('home')
+        
+    # Send confirmation email in background
+        from .email_utils import send_booking_confirmation_email
+        from django.utils import timezone
 
-        messages.success(request, "Payment successful! Seats booked!")
+        # Get seat numbers from booking
+        seat_numbers = []
+        for seat_id in payment.seats_data:
+            try:
+                seat = Seat.objects.get(id=seat_id)
+                seat_numbers.append(seat.seat_number)
+            except Seat.DoesNotExist:
+                pass
+
+        send_booking_confirmation_email(
+            user_email=request.user.email,
+            user_name=request.user.get_full_name() or request.user.username,
+            movie_name=payment.theater.movie.name,
+            theater_name=payment.theater.name,
+            show_time=str(payment.theater.time.strftime('%d %b %Y, %I:%M %p')),
+            seat_numbers=seat_numbers,
+            amount=str(payment.amount),
+            payment_id=razorpay_payment_id,
+            booking_date=timezone.now().strftime('%d %b %Y, %I:%M %p'),
+        )
+
+        messages.success(request, "Payment successful! Booking confirmation sent to your email!")
         return redirect('profile')
-
     return redirect('home')
 
 
@@ -302,3 +326,23 @@ def razorpay_webhook(request):
         return HttpResponse(status=200)
 
     return HttpResponse(status=405)
+
+from django.contrib.admin.views.decorators import staff_member_required
+from .analytics import get_dashboard_summary
+from django.core.cache import cache
+
+@staff_member_required
+def admin_dashboard(request):
+    """
+    Secure admin dashboard — only staff/superuser can access.
+    Uses DB-level aggregation and caching.
+    """
+    # Clear cache if requested
+    if request.GET.get('refresh'):
+        cache.clear()
+
+    data = get_dashboard_summary()
+    return render(request, 'movies/admin_dashboard.html', {
+        'data': data,
+        'user': request.user,
+    })
