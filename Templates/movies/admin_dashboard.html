@@ -1,262 +1,623 @@
 {% extends "users/basic.html" %}
 {% block content %}
-<div class="container-fluid mt-4">
 
-    <!-- Header -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>📊 Admin Analytics Dashboard</h2>
-        <div>
-            <span class="badge bg-success me-2">{{ user.username }}</span>
-            <a href="?refresh=1" class="btn btn-sm btn-outline-secondary">
-                🔄 Refresh Data
-            </a>
+<style>
+  :root {
+    --primary: #6c63ff;
+    --success: #2ecc71;
+    --danger: #e74c3c;
+    --warning: #f39c12;
+    --info: #3498db;
+    --dark: #1a1a2e;
+    --card-bg: #ffffff;
+    --text-muted: #6c757d;
+  }
+
+  body {
+    background-color: #f0f2f5;
+  }
+
+  .dashboard-header {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    color: white;
+    padding: 30px;
+    border-radius: 15px;
+    margin-bottom: 30px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+  }
+
+  .dashboard-header h2 {
+    font-size: 28px;
+    font-weight: 700;
+    margin: 0;
+  }
+
+  .dashboard-header p {
+    color: #aaa;
+    margin: 5px 0 0;
+    font-size: 14px;
+  }
+
+  .stat-card {
+    border: none;
+    border-radius: 15px;
+    padding: 25px;
+    color: white;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    transition: transform 0.3s, box-shadow 0.3s;
+    margin-bottom: 20px;
+  }
+
+  .stat-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+  }
+
+  .stat-card .icon {
+    font-size: 50px;
+    position: absolute;
+    right: 20px;
+    top: 20px;
+    opacity: 0.2;
+  }
+
+  .stat-card h6 {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    opacity: 0.8;
+    margin-bottom: 10px;
+  }
+
+  .stat-card h2 {
+    font-size: 36px;
+    font-weight: 700;
+    margin: 0;
+  }
+
+  .stat-card small {
+    opacity: 0.7;
+    font-size: 12px;
+  }
+
+  .stat-card.revenue { background: linear-gradient(135deg, #2ecc71, #27ae60); }
+  .stat-card.bookings { background: linear-gradient(135deg, #3498db, #2980b9); }
+  .stat-card.users { background: linear-gradient(135deg, #9b59b6, #8e44ad); }
+  .stat-card.rate { background: linear-gradient(135deg, #f39c12, #e67e22); }
+
+  .chart-card {
+    background: white;
+    border-radius: 15px;
+    padding: 25px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+    margin-bottom: 25px;
+    border: none;
+  }
+
+  .chart-card .card-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1a1a2e;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #f0f2f5;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .table-card {
+    background: white;
+    border-radius: 15px;
+    padding: 25px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+    margin-bottom: 25px;
+  }
+
+  .table-card .card-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1a1a2e;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #f0f2f5;
+  }
+
+  .table thead th {
+    background: #f8f9fa;
+    border: none;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #6c757d;
+    padding: 12px 15px;
+  }
+
+  .table tbody td {
+    border: none;
+    padding: 12px 15px;
+    vertical-align: middle;
+    border-bottom: 1px solid #f0f2f5;
+  }
+
+  .table tbody tr:hover {
+    background: #f8f9fa;
+  }
+
+  .rank-badge {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 13px;
+  }
+
+  .rank-1 { background: #ffd700; color: #333; }
+  .rank-2 { background: #c0c0c0; color: #333; }
+  .rank-3 { background: #cd7f32; color: white; }
+  .rank-other { background: #f0f2f5; color: #666; }
+
+  .movie-badge {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .progress {
+    height: 8px;
+    border-radius: 10px;
+    background: #f0f2f5;
+  }
+
+  .progress-bar {
+    border-radius: 10px;
+  }
+
+  .occupancy-high { background: linear-gradient(90deg, #2ecc71, #27ae60); }
+  .occupancy-mid { background: linear-gradient(90deg, #f39c12, #e67e22); }
+  .occupancy-low { background: linear-gradient(90deg, #3498db, #2980b9); }
+
+  .payment-stat {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid #f0f2f5;
+  }
+
+  .payment-stat:last-child { border-bottom: none; }
+
+  .payment-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 8px;
+  }
+
+  .refresh-btn {
+    background: rgba(255,255,255,0.15);
+    color: white;
+    border: 1px solid rgba(255,255,255,0.3);
+    padding: 8px 20px;
+    border-radius: 25px;
+    font-size: 13px;
+    text-decoration: none;
+    transition: all 0.3s;
+  }
+
+  .refresh-btn:hover {
+    background: rgba(255,255,255,0.25);
+    color: white;
+  }
+
+  .admin-badge {
+    background: linear-gradient(135deg, #6c63ff, #a855f7);
+    color: white;
+    padding: 5px 15px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 40px;
+    color: #aaa;
+  }
+
+  .empty-state .icon {
+    font-size: 50px;
+    margin-bottom: 10px;
+  }
+</style>
+
+<div class="container-fluid px-4 py-4">
+
+  <!-- Header -->
+  <div class="dashboard-header">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+      <div>
+        <h2>📊 Analytics Dashboard</h2>
+        <p>Welcome back, <strong>{{ user.username }}</strong> — Here's what's happening today</p>
+      </div>
+      <div class="d-flex align-items-center gap-3">
+        <span class="admin-badge">👑 Admin</span>
+        <a href="?refresh=1" class="refresh-btn">🔄 Refresh</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Summary Cards -->
+  <div class="row">
+    <div class="col-xl-3 col-md-6">
+      <div class="stat-card revenue">
+        <span class="icon">💰</span>
+        <h6>Total Revenue</h6>
+        <h2>₹{{ data.revenue.total.total|default:"0" }}</h2>
+        <small>{{ data.revenue.total.count|default:"0" }} successful payments</small>
+      </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+      <div class="stat-card bookings">
+        <span class="icon">🎟️</span>
+        <h6>Total Bookings</h6>
+        <h2>{{ data.total_bookings }}</h2>
+        <small>All time bookings</small>
+      </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+      <div class="stat-card users">
+        <span class="icon">👥</span>
+        <h6>Registered Users</h6>
+        <h2>{{ data.total_users }}</h2>
+        <small>Total registered users</small>
+      </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+      <div class="stat-card rate">
+        <span class="icon">📈</span>
+        <h6>Payment Success Rate</h6>
+        <h2>{{ data.cancellation_stats.success_rate }}%</h2>
+        <small>{{ data.cancellation_stats.success }} successful payments</small>
+      </div>
+    </div>
+  </div>
+
+  <!-- Charts Row -->
+  <div class="row mt-2">
+
+    <!-- Revenue Chart -->
+    <div class="col-xl-8">
+      <div class="chart-card">
+        <div class="card-title">
+          📈 Revenue Trend
+          <span style="font-size:12px; color:#aaa; font-weight:400;">Last 7 days</span>
         </div>
+        <canvas id="revenueChart" height="100"></canvas>
+      </div>
     </div>
 
-    <!-- Summary Cards -->
-    <div class="row mb-4">
-        <div class="col-md-3">
-            <div class="card bg-success text-white">
-                <div class="card-body">
-                    <h6>Total Revenue</h6>
-                    <h3>₹{{ data.revenue.total.total|default:0 }}</h3>
-                    <small>{{ data.revenue.total.count|default:0 }} payments</small>
-                </div>
-            </div>
+    <!-- Payment Stats -->
+    <div class="col-xl-4">
+      <div class="chart-card">
+        <div class="card-title">💳 Payment Breakdown</div>
+        <canvas id="paymentChart" height="200"></canvas>
+        <div class="mt-3">
+          <div class="payment-stat">
+            <span>
+              <span class="payment-dot" style="background:#2ecc71;"></span>
+              Successful
+            </span>
+            <strong style="color:#2ecc71;">{{ data.cancellation_stats.success }}</strong>
+          </div>
+          <div class="payment-stat">
+            <span>
+              <span class="payment-dot" style="background:#e74c3c;"></span>
+              Failed
+            </span>
+            <strong style="color:#e74c3c;">{{ data.cancellation_stats.failed }}</strong>
+          </div>
+          <div class="payment-stat">
+            <span>
+              <span class="payment-dot" style="background:#f39c12;"></span>
+              Cancelled
+            </span>
+            <strong style="color:#f39c12;">{{ data.cancellation_stats.cancelled }}</strong>
+          </div>
+          <div class="payment-stat">
+            <span>
+              <span class="payment-dot" style="background:#3498db;"></span>
+              Pending
+            </span>
+            <strong style="color:#3498db;">{{ data.cancellation_stats.pending }}</strong>
+          </div>
         </div>
-        <div class="col-md-3">
-            <div class="card bg-primary text-white">
-                <div class="card-body">
-                    <h6>Total Bookings</h6>
-                    <h3>{{ data.total_bookings }}</h3>
-                    <small>All time</small>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tables Row -->
+  <div class="row">
+
+    <!-- Popular Movies -->
+    <div class="col-xl-6">
+      <div class="table-card">
+        <div class="card-title">🎬 Most Popular Movies</div>
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Rank</th>
+              <th>Movie</th>
+              <th>Bookings</th>
+              <th>Revenue</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for movie in data.popular_movies %}
+            <tr>
+              <td>
+                <div class="rank-badge {% if forloop.counter == 1 %}rank-1{% elif forloop.counter == 2 %}rank-2{% elif forloop.counter == 3 %}rank-3{% else %}rank-other{% endif %}">
+                  {{ forloop.counter }}
                 </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card bg-info text-white">
-                <div class="card-body">
-                    <h6>Total Users</h6>
-                    <h3>{{ data.total_users }}</h3>
-                    <small>Registered users</small>
+              </td>
+              <td>
+                <strong>{{ movie.name }}</strong>
+                <br>
+                <small class="text-muted">⭐ {{ movie.rating }}</small>
+              </td>
+              <td>
+                <span class="movie-badge">{{ movie.booking_count }} seats</span>
+              </td>
+              <td>
+                <strong style="color:#2ecc71;">
+                  ₹{{ movie.total_revenue|default:"0" }}
+                </strong>
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="4">
+                <div class="empty-state">
+                  <div class="icon">🎬</div>
+                  <p>No bookings yet</p>
                 </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card bg-warning text-white">
-                <div class="card-body">
-                    <h6>Success Rate</h6>
-                    <h3>{{ data.cancellation_stats.success_rate }}%</h3>
-                    <small>Payment success</small>
-                </div>
-            </div>
-        </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     </div>
 
-    <div class="row">
-        <!-- Revenue Chart -->
-        <div class="col-md-8 mb-4">
-            <div class="card">
-                <div class="card-header">
-                    <h5>📈 Daily Revenue (Last 7 Days)</h5>
-                </div>
-                <div class="card-body">
-                    <canvas id="revenueChart" height="100"></canvas>
-                </div>
-            </div>
-        </div>
-
-        <!-- Cancellation Stats -->
-        <div class="col-md-4 mb-4">
-            <div class="card">
-                <div class="card-header">
-                    <h5>💳 Payment Stats</h5>
-                </div>
-                <div class="card-body">
-                    <canvas id="paymentChart"></canvas>
-                    <div class="mt-3">
-                        <div class="d-flex justify-content-between">
-                            <span>✅ Success</span>
-                            <strong>{{ data.cancellation_stats.success }}</strong>
-                        </div>
-                        <div class="d-flex justify-content-between">
-                            <span>❌ Failed</span>
-                            <strong>{{ data.cancellation_stats.failed }}</strong>
-                        </div>
-                        <div class="d-flex justify-content-between">
-                            <span>🚫 Cancelled</span>
-                            <strong>{{ data.cancellation_stats.cancelled }}</strong>
-                        </div>
-                        <div class="d-flex justify-content-between">
-                            <span>⏳ Pending</span>
-                            <strong>{{ data.cancellation_stats.pending }}</strong>
-                        </div>
+    <!-- Busiest Theaters -->
+    <div class="col-xl-6">
+      <div class="table-card">
+        <div class="card-title">🎭 Theater Occupancy</div>
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Theater</th>
+              <th>Movie</th>
+              <th>Occupancy</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for theater in data.busiest_theaters %}
+            <tr>
+              <td><strong>{{ theater.name }}</strong></td>
+              <td>
+                <small class="text-muted">{{ theater.movie }}</small>
+              </td>
+              <td style="min-width:150px;">
+                <div class="d-flex align-items-center gap-2">
+                  <div class="progress flex-grow-1">
+                    <div class="progress-bar
+                      {% if theater.occupancy_rate >= 70 %}occupancy-high
+                      {% elif theater.occupancy_rate >= 40 %}occupancy-mid
+                      {% else %}occupancy-low{% endif %}"
+                      style="width:{{ theater.occupancy_rate }}%">
                     </div>
+                  </div>
+                  <small><strong>{{ theater.occupancy_rate }}%</strong></small>
                 </div>
-            </div>
-        </div>
+                <small class="text-muted">
+                  {{ theater.booked_seats }}/{{ theater.total_seats }} seats
+                </small>
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="3">
+                <div class="empty-state">
+                  <div class="icon">🎭</div>
+                  <p>No theater data yet</p>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     </div>
+  </div>
 
-    <div class="row">
-        <!-- Popular Movies -->
-        <div class="col-md-6 mb-4">
-            <div class="card">
-                <div class="card-header">
-                    <h5>🎬 Most Popular Movies</h5>
-                </div>
-                <div class="card-body">
-                    <table class="table table-hover">
-                        <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>Movie</th>
-                                <th>Bookings</th>
-                                <th>Revenue</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for movie in data.popular_movies %}
-                            <tr>
-                                <td>{{ forloop.counter }}</td>
-                                <td>{{ movie.name }}</td>
-                                <td>
-                                    <span class="badge bg-primary">
-                                        {{ movie.booking_count }}
-                                    </span>
-                                </td>
-                                <td>₹{{ movie.total_revenue|default:0 }}</td>
-                            </tr>
-                            {% empty %}
-                            <tr>
-                                <td colspan="4" class="text-center text-muted">
-                                    No bookings yet
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+  <!-- Peak Hours -->
+  <div class="row">
+    <div class="col-12">
+      <div class="chart-card">
+        <div class="card-title">
+          ⏰ Peak Booking Hours
+          <span style="font-size:12px; color:#aaa; font-weight:400;">
+            Bookings by hour of day
+          </span>
         </div>
-
-        <!-- Busiest Theaters -->
-        <div class="col-md-6 mb-4">
-            <div class="card">
-                <div class="card-header">
-                    <h5>🎭 Busiest Theaters</h5>
-                </div>
-                <div class="card-body">
-                    <table class="table table-hover">
-                        <thead>
-                            <tr>
-                                <th>Theater</th>
-                                <th>Movie</th>
-                                <th>Occupancy</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for theater in data.busiest_theaters %}
-                            <tr>
-                                <td>{{ theater.name }}</td>
-                                <td>{{ theater.movie }}</td>
-                                <td>
-                                    <div class="progress" style="height:20px;">
-                                        <div class="progress-bar bg-success"
-                                            style="width:{{ theater.occupancy_rate }}%">
-                                            {{ theater.occupancy_rate }}%
-                                        </div>
-                                    </div>
-                                </td>
-                            </tr>
-                            {% empty %}
-                            <tr>
-                                <td colspan="3" class="text-center text-muted">
-                                    No data yet
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
+        <canvas id="hoursChart" height="60"></canvas>
+      </div>
     </div>
+  </div>
 
-    <!-- Peak Booking Hours -->
-    <div class="row">
-        <div class="col-md-12 mb-4">
-            <div class="card">
-                <div class="card-header">
-                    <h5>⏰ Peak Booking Hours</h5>
-                </div>
-                <div class="card-body">
-                    <canvas id="hoursChart" height="60"></canvas>
-                </div>
-            </div>
+  <!-- Monthly Revenue -->
+  <div class="row">
+    <div class="col-12">
+      <div class="chart-card">
+        <div class="card-title">
+          📅 Monthly Revenue
+          <span style="font-size:12px; color:#aaa; font-weight:400;">
+            Last 6 months
+          </span>
         </div>
+        <canvas id="monthlyChart" height="60"></canvas>
+      </div>
     </div>
+  </div>
 
 </div>
 
-<!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    // Revenue Chart
-    const revenueCtx = document.getElementById('revenueChart').getContext('2d');
-    new Chart(revenueCtx, {
-        type: 'line',
-        data: {
-            labels: [{% for d in data.revenue.daily %}'{{ d.day|date:"d M" }}',{% endfor %}],
-        datasets: [{
-            label: 'Revenue (₹)',
-            data: [{% for d in data.revenue.daily %}{{ d.total }}, {% endfor %}],
-        borderColor: '#28a745',
-        backgroundColor: 'rgba(40,167,69,0.1)',
+  // Common chart defaults
+  Chart.defaults.font.family = 'Arial, sans-serif';
+  Chart.defaults.color = '#6c757d';
+
+  // Revenue Line Chart
+  const revenueCtx = document.getElementById('revenueChart').getContext('2d');
+  new Chart(revenueCtx, {
+    type: 'line',
+    data: {
+      labels: [{% for d in data.revenue.daily %}'{{ d.day|date:"d M" }}',{% endfor %}],
+      datasets: [{
+        label: 'Revenue (₹)',
+        data: [{% for d in data.revenue.daily %}{{ d.total|default:0 }},{% endfor %}],
+        borderColor: '#6c63ff',
+        backgroundColor: 'rgba(108,99,255,0.1)',
         fill: true,
-        tension: 0.4
-            }]
+        tension: 0.4,
+        pointBackgroundColor: '#6c63ff',
+        pointRadius: 5,
+        pointHoverRadius: 8,
+        borderWidth: 3,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => `₹${ctx.raw}`
+          }
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          grid: { color: '#f0f2f5' },
+          ticks: {
+            callback: val => `₹${val}`
+          }
         },
-        options: {
-        responsive: true,
-        plugins: { legend: { display: false } }
+        x: { grid: { display: false } }
+      }
     }
-    });
+  });
 
-    // Payment Pie Chart
-    const paymentCtx = document.getElementById('paymentChart').getContext('2d');
-    new Chart(paymentCtx, {
-        type: 'doughnut',
-        data: {
-            labels: ['Success', 'Failed', 'Cancelled', 'Pending'],
-            datasets: [{
-                data: [
-                    {{ data.cancellation_stats.success }},
-            {{ data.cancellation_stats.failed }},
-                    {{ data.cancellation_stats.cancelled }},
-        {{ data.cancellation_stats.pending }}
-                ],
-        backgroundColor: ['#28a745', '#dc3545', '#ffc107', '#17a2b8']
-            }]
-        },
-        options: { responsive: true }
-    });
-
-    // Peak Hours Chart
-    const hoursCtx = document.getElementById('hoursChart').getContext('2d');
-    new Chart(hoursCtx, {
-        type: 'bar',
-        data: {
-            labels: [{% for h in data.peak_hours %}'{{ h.hour }}:00',{% endfor %}],
-        datasets: [{
-            label: 'Bookings',
-            data: [{% for h in data.peak_hours %}{{ h.count }}, {% endfor %}],
-        backgroundColor: '#007bff'
-            }]
-        },
-        options: {
-        responsive: true,
-        plugins: { legend: { display: false } }
+  // Payment Donut Chart
+  const paymentCtx = document.getElementById('paymentChart').getContext('2d');
+  new Chart(paymentCtx, {
+    type: 'doughnut',
+    data: {
+      labels: ['Success', 'Failed', 'Cancelled', 'Pending'],
+      datasets: [{
+        data: [
+          {{ data.cancellation_stats.success }},
+          {{ data.cancellation_stats.failed }},
+          {{ data.cancellation_stats.cancelled }},
+          {{ data.cancellation_stats.pending }}
+        ],
+        backgroundColor: ['#2ecc71', '#e74c3c', '#f39c12', '#3498db'],
+        borderWidth: 0,
+        hoverOffset: 8,
+      }]
+    },
+    options: {
+      responsive: true,
+      cutout: '70%',
+      plugins: {
+        legend: { display: false }
+      }
     }
-    });
+  });
+
+  // Peak Hours Bar Chart
+  const hoursCtx = document.getElementById('hoursChart').getContext('2d');
+  new Chart(hoursCtx, {
+    type: 'bar',
+    data: {
+      labels: [{% for h in data.peak_hours %}'{{ h.hour }}:00',{% endfor %}],
+      datasets: [{
+        label: 'Bookings',
+        data: [{% for h in data.peak_hours %}{{ h.count }},{% endfor %}],
+        backgroundColor: 'rgba(108,99,255,0.7)',
+        borderRadius: 8,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: {
+          beginAtZero: true,
+          grid: { color: '#f0f2f5' }
+        },
+        x: { grid: { display: false } }
+      }
+    }
+  });
+
+  // Monthly Revenue Chart
+  const monthlyCtx = document.getElementById('monthlyChart').getContext('2d');
+  new Chart(monthlyCtx, {
+    type: 'bar',
+    data: {
+      labels: [{% for d in data.revenue.monthly %}'{{ d.month|date:"M Y" }}',{% endfor %}],
+      datasets: [{
+        label: 'Revenue (₹)',
+        data: [{% for d in data.revenue.monthly %}{{ d.total|default:0 }},{% endfor %}],
+        backgroundColor: 'rgba(46,204,113,0.7)',
+        borderRadius: 8,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => `₹${ctx.raw}`
+          }
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          grid: { color: '#f0f2f5' },
+          ticks: { callback: val => `₹${val}` }
+        },
+        x: { grid: { display: false } }
+      }
+    }
+  });
 </script>
+
 {% endblock %}
