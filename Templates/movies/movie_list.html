@@ -1,111 +1,81 @@
-{% extends "users/basic.html" %}
+from django.core.paginator import Paginator
+from django.db.models import Count, Q, Prefetch
+from .models import Movie, Theater, Seat, Booking, SeatReservation, Payment, Genre, Language
 
-{% block content %}
-<div class="container py-5">
-    <h1 class="text-center mb-5">Movies</h1>
+def movie_list(request):
+    # Get filter parameters
+    search_query = request.GET.get('search', '')
+    selected_genres = request.GET.getlist('genre')
+    selected_languages = request.GET.getlist('language')
+    sort_by = request.GET.get('sort', 'name')
+    page_number = request.GET.get('page', 1)
 
-    <div class="row justify-content-center mb-5">
-        <div class="col-md-8">
-            <form method="GET" action="{% url 'movie_list' %}" class="search-bar">
-                <div class="input-group">
-                    <input
-                        class="form-control form-control-lg"
-                        name="search"
-                        placeholder="Search for Movies, Events, Plays, Sports and Activities"
-                        type="text"
-                        value="{{ request.GET.search|default_if_none:'' }}"
-                        aria-label="Search for movies"
-                    />
-                    <div class="input-group-append">
-                        <button class="btn btn-primary" type="submit">
-                            <i class="fas fa-search"></i> Search
-                        </button>
-                    </div>
-                </div>
-            </form>
-        </div>
-    </div>
+    # Base queryset with select_related for optimization
+    # Avoids N+1 queries on language field
+    movies = Movie.objects.select_related('language').prefetch_related('genres')
 
-    <div class="row" id="movieList">
-        {% for movie in movies %}
-        <div class="col-md-4 mb-4">
-            <div class="card h-100 shadow-sm">
-                <img src="{{ movie.image.url }}" class="card-img-top" alt="{{ movie.name }}" style="height: 300px; object-fit: cover;">
-                <div class="card-body">
-                    <h5 class="card-title">{{ movie.name }}</h5>
-                    <p class="card-text">
-                        <i class="fas fa-star text-warning"></i> {{ movie.rating }}
-                    </p>
-                    <p class="card-text">
-                        <small class="text-muted">
-                            <i class="fas fa-users"></i> Cast: {{ movie.cast }}
-                        </small>
-                    </p>
-                </div>
-                <div class="card-footer bg-white border-top-0">
-                    <a href="{% url 'theater_list' movie.id %}" class="btn btn-outline-primary btn-block">
-                        View Theaters <i class="fas fa-chevron-right ml-2"></i>
-                    </a>
-                </div>
-            </div>
-        </div>
-        {% empty %}
-        <div class="col-12 text-center">
-            <p class="lead">No movies found. Try a different search term.</p>
-        </div>
-        {% endfor %}
-    </div>
-</div>
+    # Search filter
+    if search_query:
+        movies = movies.filter(
+            Q(name__icontains=search_query) |
+            Q(cast__icontains=search_query) |
+            Q(description__icontains=search_query)
+        )
 
-<!-- Bootstrap JS and dependencies -->
-<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.3/dist/umd/popper.min.js"></script>
-<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    # Multi-select genre filter
+    if selected_genres:
+        movies = movies.filter(
+            genres__id__in=selected_genres
+        ).distinct()  # distinct prevents duplicate results
 
-<!-- Font Awesome -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    # Multi-select language filter
+    if selected_languages:
+        movies = movies.filter(
+            language__id__in=selected_languages
+        )
 
-<style>
-    .card {
-        transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+    # Sorting
+    sort_options = {
+        'name': 'name',
+        'rating': '-rating',
+        'newest': '-id',
+        'oldest': 'id',
     }
-    .card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1) !important;
-    }
-</style>
+    movies = movies.order_by(sort_options.get(sort_by, 'name'))
 
-<script>
-    $(document).ready(function() {
-        // Add animation to cards on hover
-        $('.card').hover(
-            function() { $(this).addClass('shadow'); },
-            function() { $(this).removeClass('shadow'); }
-        );
+    # Dynamic filter counts
+    # Count genres AFTER applying language/search filters
+    genre_counts = Genre.objects.filter(
+        movies__in=movies
+    ).annotate(
+        count=Count('movies', distinct=True)
+    ).order_by('name')
 
-        // Implement client-side filtering
-        $('input[name="search"]').on('input', function() {
-            var searchTerm = $(this).val().toLowerCase();
-            $('#movieList .col-md-4').each(function() {
-                var movieTitle = $(this).find('.card-title').text().toLowerCase();
-                if (movieTitle.includes(searchTerm)) {
-                    $(this).show();
-                } else {
-                    $(this).hide();
-                }
-            });
-        });
-    });
-</script>
-<!-- <h1>Movies</h1>
-<ul>
-    {% for movie in movies%}
-    <li>
-        <img src="{{movie.image.url}}" alt="image" >
-        <strong>{{movie.name}}</strong>{{movie.rating}}
-        <p>Cast:{{movie.cast}}</p>
-        <a href="{% url 'theater_list' movie.id %}">View Theaters</a>
-    </li>
-    {% endfor %}
-</ul> -->
-{% endblock %}
+    # Count languages AFTER applying genre/search filters
+    language_counts = Language.objects.filter(
+        movies__in=movies
+    ).annotate(
+        count=Count('movies', distinct=True)
+    ).order_by('name')
+
+    # Pagination — 12 movies per page
+    paginator = Paginator(movies, 12)
+    page_obj = paginator.get_page(page_number)
+
+    # Get all genres and languages for filter sidebar
+    all_genres = Genre.objects.all()
+    all_languages = Language.objects.all()
+
+    return render(request, 'movies/movie_list.html', {
+        'movies': page_obj,
+        'page_obj': page_obj,
+        'all_genres': all_genres,
+        'all_languages': all_languages,
+        'genre_counts': {g.id: g.count for g in genre_counts},
+        'language_counts': {l.id: l.count for l in language_counts},
+        'selected_genres': [int(g) for g in selected_genres],
+        'selected_languages': [int(l) for l in selected_languages],
+        'search_query': search_query,
+        'sort_by': sort_by,
+        'total_count': paginator.count,
+    })

@@ -11,6 +11,18 @@ def validate_youtube_url(value):
     if not re.match(pattern, value):
         raise ValidationError('Enter a valid YouTube URL.')
 
+class Genre(models.Model):
+    name = models.CharField(max_length=100, unique=True, db_index=True)
+
+    def __str__(self):
+        return self.name
+
+class Language(models.Model):
+    name = models.CharField(max_length=100, unique=True, db_index=True)
+
+    def __str__(self):
+        return self.name
+
 class Movie(models.Model):
     name = models.CharField(max_length=255, db_index=True)
     image = models.ImageField(upload_to="movies/")
@@ -18,10 +30,20 @@ class Movie(models.Model):
     cast = models.TextField()
     description = models.TextField(blank=True, null=True)
     trailer_url = models.URLField(blank=True, null=True, validators=[validate_youtube_url])
+    genres = models.ManyToManyField(Genre, blank=True, related_name='movies')
+    language = models.ForeignKey(
+        Language,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='movies',
+        db_index=True
+    )
 
     class Meta:
         indexes = [
             models.Index(fields=['name']),
+            models.Index(fields=['rating']),
+            models.Index(fields=['language']),
         ]
 
     def __str__(self):
