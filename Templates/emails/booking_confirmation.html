@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 30px auto;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            background-color: #1a1a2e;
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+        }
+        .header p {
+            margin: 5px 0 0;
+            color: #aaa;
+        }
+        .body {
+            padding: 30px;
+        }
+        .ticket {
+            background: #f8f9fa;
+            border-left: 4px solid #28a745;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .ticket-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .ticket-row:last-child {
+            border-bottom: none;
+        }
+        .ticket-label {
+            color: #666;
+            font-size: 14px;
+        }
+        .ticket-value {
+            font-weight: bold;
+            color: #333;
+        }
+        .seats {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 10px 0;
+        }
+        .seat-badge {
+            background: #28a745;
+            color: white;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+        }
+        .payment-id {
+            background: #e8f5e9;
+            border: 1px solid #28a745;
+            padding: 10px 15px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 13px;
+            color: #2e7d32;
+            word-break: break-all;
+        }
+        .footer {
+            background: #1a1a2e;
+            color: #aaa;
+            padding: 20px;
+            text-align: center;
+            font-size: 12px;
+        }
+        .btn {
+            display: inline-block;
+            background: #28a745;
+            color: white;
+            padding: 12px 30px;
+            border-radius: 5px;
+            text-decoration: none;
+            margin: 20px 0;
+        }
+        .warning {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            padding: 10px 15px;
+            border-radius: 5px;
+            font-size: 13px;
+            color: #856404;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>⭐ StarTicket</h1>
+            <p>Your Booking is Confirmed!</p>
+        </div>
+
+        <!-- Body -->
+        <div class="body">
+            <p>Hi <strong>{{ user_name }}</strong>,</p>
+            <p>Your ticket booking has been confirmed. Here are your booking details:</p>
+
+            <!-- Ticket Details -->
+            <div class="ticket">
+                <div class="ticket-row">
+                    <span class="ticket-label">🎬 Movie</span>
+                    <span class="ticket-value">{{ movie_name }}</span>
+                </div>
+                <div class="ticket-row">
+                    <span class="ticket-label">🎭 Theater</span>
+                    <span class="ticket-value">{{ theater_name }}</span>
+                </div>
+                <div class="ticket-row">
+                    <span class="ticket-label">🕐 Show Time</span>
+                    <span class="ticket-value">{{ show_time }}</span>
+                </div>
+                <div class="ticket-row">
+                    <span class="ticket-label">💺 Seats</span>
+                    <span class="ticket-value">
+                        <div class="seats">
+                            {% for seat in seat_numbers %}
+                            <span class="seat-badge">{{ seat }}</span>
+                            {% endfor %}
+                        </div>
+                    </span>
+                </div>
+                <div class="ticket-row">
+                    <span class="ticket-label">💰 Amount Paid</span>
+                    <span class="ticket-value">₹{{ amount }}</span>
+                </div>
+                <div class="ticket-row">
+                    <span class="ticket-label">📅 Booking Date</span>
+                    <span class="ticket-value">{{ booking_date }}</span>
+                </div>
+            </div>
+
+            <!-- Payment ID -->
+            <p><strong>Payment Reference ID:</strong></p>
+            <div class="payment-id">{{ payment_id }}</div>
+
+            <!-- Warning -->
+            <div class="warning">
+                ⚠️ Please keep this email as proof of your booking.
+                Carry a valid ID to the theater.
+            </div>
+
+            <p style="margin-top:20px;">Enjoy the movie! 🍿</p>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p>© 2026 StarTicket. All Rights Reserved.</p>
+            <p>This is an automated email. Please do not reply.</p>
+            <p style="color:#666; font-size:11px;">
+                Sensitive payment data is never stored in emails.
+            </p>
+        </div>
+    </div>
+</body>
+</html>
