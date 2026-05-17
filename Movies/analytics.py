@@ -93,13 +93,12 @@ def get_popular_movies():
 
 
 def get_busiest_theaters():
-    """Get busiest theaters by seat occupancy rate"""
     cache_key = 'analytics_busiest_theaters'
     cached = cache.get(cache_key)
     if cached:
         return cached
 
-    theaters = Theater.objects.annotate(
+    theaters = Theater.objects.select_related('movie').annotate(
         total_seats=Count('seats'),
         booked_seats=Count('seats', filter=Q(seats__is_booked=True)),
     ).order_by('-booked_seats')[:10]
