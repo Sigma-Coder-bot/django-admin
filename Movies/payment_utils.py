@@ -1,16 +1,12 @@
 import razorpay
 import hmac
 import hashlib
-import uuid
 import os
 
 def get_razorpay_client():
-    return razorpay.Client(
-        auth=(
-            os.environ.get('rzp_test_SqBAfb0AZJpYSy'),
-            os.environ.get('9A3UpojB7PcHQ2xgFi3qjlI7')
-        )
-    )
+    key_id = os.environ.get('rzp_test_SqBAfb0AZJpYSy')
+    key_secret = os.environ.get('9A3UpojB7PcHQ2xgFi3qjlI7')
+    return razorpay.Client(auth=(key_id, key_secret))
 
 def generate_idempotency_key(user_id, theater_id, seat_ids):
     """Generate unique key to prevent duplicate transactions"""
