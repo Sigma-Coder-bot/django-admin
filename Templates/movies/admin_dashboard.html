@@ -162,7 +162,7 @@
                                 <td>
                                     <div class="progress" style="height:20px;">
                                         <div class="progress-bar bg-success"
-                                             style="width:{{ theater.occupancy_rate }}%">
+                                            style="width:{{ theater.occupancy_rate }}%">
                                             {{ theater.occupancy_rate }}%
                                         </div>
                                     </div>
@@ -207,19 +207,19 @@
         type: 'line',
         data: {
             labels: [{% for d in data.revenue.daily %}'{{ d.day|date:"d M" }}',{% endfor %}],
-            datasets: [{
-                label: 'Revenue (₹)',
-                data: [{% for d in data.revenue.daily %}{{ d.total }},{% endfor %}],
-                borderColor: '#28a745',
-                backgroundColor: 'rgba(40,167,69,0.1)',
-                fill: true,
-                tension: 0.4
+        datasets: [{
+            label: 'Revenue (₹)',
+            data: [{% for d in data.revenue.daily %}{{ d.total }}, {% endfor %}],
+        borderColor: '#28a745',
+        backgroundColor: 'rgba(40,167,69,0.1)',
+        fill: true,
+        tension: 0.4
             }]
         },
         options: {
-            responsive: true,
-            plugins: { legend: { display: false } }
-        }
+        responsive: true,
+        plugins: { legend: { display: false } }
+    }
     });
 
     // Payment Pie Chart
@@ -231,11 +231,11 @@
             datasets: [{
                 data: [
                     {{ data.cancellation_stats.success }},
-                    {{ data.cancellation_stats.failed }},
+            {{ data.cancellation_stats.failed }},
                     {{ data.cancellation_stats.cancelled }},
-                    {{ data.cancellation_stats.pending }}
+        {{ data.cancellation_stats.pending }}
                 ],
-                backgroundColor: ['#28a745', '#dc3545', '#ffc107', '#17a2b8']
+        backgroundColor: ['#28a745', '#dc3545', '#ffc107', '#17a2b8']
             }]
         },
         options: { responsive: true }
@@ -247,16 +247,16 @@
         type: 'bar',
         data: {
             labels: [{% for h in data.peak_hours %}'{{ h.hour }}:00',{% endfor %}],
-            datasets: [{
-                label: 'Bookings',
-                data: [{% for h in data.peak_hours %}{{ h.count }},{% endfor %}],
-                backgroundColor: '#007bff'
+        datasets: [{
+            label: 'Bookings',
+            data: [{% for h in data.peak_hours %}{{ h.count }}, {% endfor %}],
+        backgroundColor: '#007bff'
             }]
         },
         options: {
-            responsive: true,
-            plugins: { legend: { display: false } }
-        }
+        responsive: true,
+        plugins: { legend: { display: false } }
+    }
     });
 </script>
 {% endblock %}
