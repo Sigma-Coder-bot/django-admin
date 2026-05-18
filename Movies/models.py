@@ -32,11 +32,8 @@ class Movie(models.Model):
     trailer_url = models.URLField(blank=True, null=True, validators=[validate_youtube_url])
     genres = models.ManyToManyField(Genre, blank=True, related_name='movies')
     language = models.ForeignKey(
-        Language,
-        on_delete=models.SET_NULL,
-        null=True, blank=True,
-        related_name='movies',
-        db_index=True
+        Language, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='movies', db_index=True
     )
 
     class Meta:
@@ -113,8 +110,7 @@ class Payment(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     booking = models.OneToOneField(
         'Booking', on_delete=models.CASCADE,
-        null=True, blank=True,
-        related_name='payment'
+        null=True, blank=True, related_name='payment'
     )
     razorpay_order_id = models.CharField(max_length=255, unique=True)
     razorpay_payment_id = models.CharField(max_length=255, blank=True, null=True)

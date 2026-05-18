@@ -26,8 +26,9 @@ from .payment_utils import (
 )
 from .analytics import get_dashboard_summary
 
-TICKET_PRICE = 200
-
+TICKET_PRICE = 30
+TICKET_PRICE = 50
+TICKET_PRICE = 70
 
 def movie_list(request):
     search_query = request.GET.get('search', '')
@@ -36,8 +37,10 @@ def movie_list(request):
     sort_by = request.GET.get('sort', 'name')
     page_number = request.GET.get('page', 1)
 
+    # Optimized base queryset — avoids N+1 queries
     movies = Movie.objects.select_related('language').prefetch_related('genres')
 
+    # Search filter using Q objects — avoids full table scan
     if search_query:
         movies = movies.filter(
             Q(name__icontains=search_query) |
@@ -45,20 +48,26 @@ def movie_list(request):
             Q(description__icontains=search_query)
         )
 
+    # Multi-select genre filter
     if selected_genres:
-        movies = movies.filter(genres__id__in=selected_genres).distinct()
+        movies = movies.filter(
+            genres__id__in=selected_genres
+        ).distinct()
 
+    # Multi-select language filter
     if selected_languages:
         movies = movies.filter(language__id__in=selected_languages)
 
-    sort_options_map = {
+    # Sorting
+    sort_map = {
         'name': 'name',
         'rating': '-rating',
         'newest': '-id',
         'oldest': 'id',
     }
-    movies = movies.order_by(sort_options_map.get(sort_by, 'name'))
+    movies = movies.order_by(sort_map.get(sort_by, 'name'))
 
+    # Dynamic filter counts — DB level aggregation
     genre_counts = Genre.objects.filter(
         movies__in=movies
     ).annotate(count=Count('movies', distinct=True)).order_by('name')
@@ -67,6 +76,7 @@ def movie_list(request):
         movies__in=movies
     ).annotate(count=Count('movies', distinct=True)).order_by('name')
 
+    # Pagination — 12 per page
     paginator = Paginator(movies, 12)
     page_obj = paginator.get_page(page_number)
 
@@ -92,7 +102,6 @@ def movie_list(request):
             ('oldest', 'Oldest'),
         ],
     })
-
 
 def theater_list(request, movie_id):
     movie = get_object_or_404(Movie, id=movie_id)

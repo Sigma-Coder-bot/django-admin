@@ -1,81 +1,267 @@
-from django.core.paginator import Paginator
-from django.db.models import Count, Q, Prefetch
-from .models import Movie, Theater, Seat, Booking, SeatReservation, Payment, Genre, Language
+{% extends "users/basic.html" %}
+{% block content %}
+<style>
+  body { background: #f0f2f5; }
+  .filter-sidebar {
+    background: white; border-radius: 15px;
+    padding: 20px; box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+    position: sticky; top: 20px;
+  }
+  .filter-section { margin-bottom: 20px; }
+  .filter-section h6 {
+    font-size: 11px; text-transform: uppercase;
+    letter-spacing: 1px; color: #888; margin-bottom: 10px;
+    padding-bottom: 8px; border-bottom: 2px solid #f0f2f5;
+    font-weight: 700;
+  }
+  .filter-item {
+    display: flex; justify-content: space-between;
+    align-items: center; padding: 5px 0;
+  }
+  .filter-item label {
+    cursor: pointer; font-size: 14px;
+    color: #333; display: flex; align-items: center; gap: 8px;
+  }
+  .filter-item input[type="checkbox"] {
+    accent-color: #6c63ff; width: 15px; height: 15px;
+  }
+  .count-badge {
+    background: #f0f2f5; color: #888;
+    padding: 2px 8px; border-radius: 10px; font-size: 11px;
+  }
+  .count-badge.active { background: #6c63ff; color: white; }
+  .movie-card {
+    background: white; border-radius: 15px;
+    overflow: hidden; box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+    transition: transform 0.3s, box-shadow 0.3s; height: 100%;
+  }
+  .movie-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 15px 35px rgba(0,0,0,0.15);
+  }
+  .movie-card img { width: 100%; height: 260px; object-fit: cover; }
+  .movie-body { padding: 15px; }
+  .movie-title { font-weight: 700; font-size: 15px; color: #1a1a2e; margin-bottom: 5px; }
+  .genre-tag {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white; padding: 2px 8px; border-radius: 12px;
+    font-size: 11px; margin: 2px; display: inline-block;
+  }
+  .lang-tag {
+    background: #e8f5e9; color: #2e7d32;
+    padding: 2px 8px; border-radius: 12px;
+    font-size: 11px; display: inline-block;
+  }
+  .rating-badge {
+    background: linear-gradient(135deg, #f39c12, #e67e22);
+    color: white; padding: 3px 8px; border-radius: 12px;
+    font-size: 12px; font-weight: 700;
+  }
+  .search-bar {
+    background: white; border-radius: 50px;
+    padding: 5px; box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+    display: flex; margin-bottom: 25px;
+  }
+  .search-bar input {
+    border: none; outline: none; flex: 1;
+    padding: 10px 20px; font-size: 15px; border-radius: 50px;
+  }
+  .search-bar button {
+    background: linear-gradient(135deg, #6c63ff, #764ba2);
+    color: white; border: none; padding: 10px 25px;
+    border-radius: 50px; font-weight: 600; cursor: pointer;
+  }
+  .sort-btn {
+    padding: 6px 15px; border-radius: 20px;
+    border: 2px solid #e0e0e0; background: white;
+    font-size: 13px; cursor: pointer;
+    text-decoration: none; color: #666;
+    transition: all 0.2s;
+  }
+  .sort-btn.active { border-color: #6c63ff; color: #6c63ff; font-weight: 600; }
+  .clear-btn {
+    background: #f0f2f5; color: #666; border: none;
+    padding: 8px; border-radius: 10px; width: 100%;
+    font-size: 13px; cursor: pointer; margin-top: 5px;
+    text-decoration: none; display: block; text-align: center;
+  }
+  .results-info { color: #888; font-size: 14px; margin-bottom: 15px; }
+  .page-link { border-radius: 8px !important; margin: 0 3px; border: none !important; color: #6c63ff; }
+  .page-item.active .page-link {
+    background: linear-gradient(135deg, #6c63ff, #764ba2) !important;
+    border: none !important;
+  }
+  .empty-state { text-align: center; padding: 60px; color: #aaa; }
+  .apply-filters-btn {
+    background: linear-gradient(135deg, #6c63ff, #764ba2);
+    color: white; border: none; padding: 10px;
+    border-radius: 10px; width: 100%; font-weight: 600;
+    cursor: pointer; margin-top: 10px;
+  }
+</style>
 
-def movie_list(request):
-    # Get filter parameters
-    search_query = request.GET.get('search', '')
-    selected_genres = request.GET.getlist('genre')
-    selected_languages = request.GET.getlist('language')
-    sort_by = request.GET.get('sort', 'name')
-    page_number = request.GET.get('page', 1)
+<div class="container-fluid px-4 py-4">
 
-    # Base queryset with select_related for optimization
-    # Avoids N+1 queries on language field
-    movies = Movie.objects.select_related('language').prefetch_related('genres')
+  <!-- Search Bar -->
+  <form method="GET" action="{% url 'movie_list' %}">
+    <div class="search-bar">
+      <input type="text" name="search" value="{{ search_query }}"
+             placeholder="Search movies, cast, description..."/>
+      {% for g in selected_genres %}<input type="hidden" name="genre" value="{{ g }}">{% endfor %}
+      {% for l in selected_languages %}<input type="hidden" name="language" value="{{ l }}">{% endfor %}
+      <input type="hidden" name="sort" value="{{ sort_by }}">
+      <button type="submit">🔍 Search</button>
+    </div>
+  </form>
 
-    # Search filter
-    if search_query:
-        movies = movies.filter(
-            Q(name__icontains=search_query) |
-            Q(cast__icontains=search_query) |
-            Q(description__icontains=search_query)
-        )
+  <div class="row">
 
-    # Multi-select genre filter
-    if selected_genres:
-        movies = movies.filter(
-            genres__id__in=selected_genres
-        ).distinct()  # distinct prevents duplicate results
+    <!-- Sidebar -->
+    <div class="col-lg-3 mb-4">
+      <form method="GET" action="{% url 'movie_list' %}" id="filter-form">
+        <input type="hidden" name="search" value="{{ search_query }}">
+        <input type="hidden" name="sort" value="{{ sort_by }}">
 
-    # Multi-select language filter
-    if selected_languages:
-        movies = movies.filter(
-            language__id__in=selected_languages
-        )
+        <div class="filter-sidebar">
+          <h5 style="font-weight:700; margin-bottom:20px;">🎯 Filters</h5>
 
-    # Sorting
-    sort_options = {
-        'name': 'name',
-        'rating': '-rating',
-        'newest': '-id',
-        'oldest': 'id',
-    }
-    movies = movies.order_by(sort_options.get(sort_by, 'name'))
+          <!-- Genre -->
+          <div class="filter-section">
+            <h6>🎬 Genre</h6>
+            {% for genre in all_genres %}
+            <div class="filter-item">
+              <label>
+                <input type="checkbox" name="genre" value="{{ genre.id }}"
+                  {% if genre.id in selected_genres %}checked{% endif %}
+                  onchange="this.form.submit()"/>
+                {{ genre.name }}
+              </label>
+              <span class="count-badge {% if genre.id in selected_genres %}active{% endif %}">
+                {{ genre_counts|default_if_none:0 }}
+              </span>
+            </div>
+            {% empty %}
+            <p class="text-muted" style="font-size:13px;">No genres yet</p>
+            {% endfor %}
+          </div>
 
-    # Dynamic filter counts
-    # Count genres AFTER applying language/search filters
-    genre_counts = Genre.objects.filter(
-        movies__in=movies
-    ).annotate(
-        count=Count('movies', distinct=True)
-    ).order_by('name')
+          <!-- Language -->
+          <div class="filter-section">
+            <h6>🌐 Language</h6>
+            {% for lang in all_languages %}
+            <div class="filter-item">
+              <label>
+                <input type="checkbox" name="language" value="{{ lang.id }}"
+                  {% if lang.id in selected_languages %}checked{% endif %}
+                  onchange="this.form.submit()"/>
+                {{ lang.name }}
+              </label>
+              <span class="count-badge {% if lang.id in selected_languages %}active{% endif %}">
+                {{ language_counts|default_if_none:0 }}
+              </span>
+            </div>
+            {% empty %}
+            <p class="text-muted" style="font-size:13px;">No languages yet</p>
+            {% endfor %}
+          </div>
 
-    # Count languages AFTER applying genre/search filters
-    language_counts = Language.objects.filter(
-        movies__in=movies
-    ).annotate(
-        count=Count('movies', distinct=True)
-    ).order_by('name')
+          <a href="{% url 'movie_list' %}" class="clear-btn">✕ Clear All Filters</a>
+        </div>
+      </form>
+    </div>
 
-    # Pagination — 12 movies per page
-    paginator = Paginator(movies, 12)
-    page_obj = paginator.get_page(page_number)
+    <!-- Movie Grid -->
+    <div class="col-lg-9">
 
-    # Get all genres and languages for filter sidebar
-    all_genres = Genre.objects.all()
-    all_languages = Language.objects.all()
+      <!-- Sort Bar -->
+      <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+        <span style="font-size:13px; color:#888;">Sort:</span>
+        {% for key, label in sort_options %}
+        <a href="?sort={{ key }}&search={{ search_query }}{% for g in selected_genres %}&genre={{ g }}{% endfor %}{% for l in selected_languages %}&language={{ l }}{% endfor %}"
+           class="sort-btn {% if sort_by == key %}active{% endif %}">
+          {{ label }}
+        </a>
+        {% endfor %}
+      </div>
 
-    return render(request, 'movies/movie_list.html', {
-        'movies': page_obj,
-        'page_obj': page_obj,
-        'all_genres': all_genres,
-        'all_languages': all_languages,
-        'genre_counts': {g.id: g.count for g in genre_counts},
-        'language_counts': {l.id: l.count for l in language_counts},
-        'selected_genres': [int(g) for g in selected_genres],
-        'selected_languages': [int(l) for l in selected_languages],
-        'search_query': search_query,
-        'sort_by': sort_by,
-        'total_count': paginator.count,
-    })
+      <!-- Results count -->
+      <p class="results-info">
+        Showing <strong>{{ page_obj.start_index }}–{{ page_obj.end_index }}</strong>
+        of <strong>{{ total_count }}</strong> movies
+        {% if search_query %}for "<strong>{{ search_query }}</strong>"{% endif %}
+      </p>
+
+      <!-- Grid -->
+      <div class="row">
+        {% for movie in movies %}
+        <div class="col-xl-3 col-lg-4 col-md-6 mb-4">
+          <div class="movie-card">
+            <img src="{{ movie.image.url }}" alt="{{ movie.name }}">
+            <div class="movie-body">
+              <div class="d-flex justify-content-between align-items-start mb-2">
+                <div class="movie-title">{{ movie.name }}</div>
+                <span class="rating-badge">⭐{{ movie.rating }}</span>
+              </div>
+              {% if movie.language %}
+              <span class="lang-tag">🌐 {{ movie.language.name }}</span>
+              {% endif %}
+              <div class="mt-1 mb-2">
+                {% for genre in movie.genres.all %}
+                <span class="genre-tag">{{ genre.name }}</span>
+                {% endfor %}
+              </div>
+              <p style="font-size:12px; color:#888; margin-bottom:10px;">
+                🎭 {{ movie.cast|truncatechars:40 }}
+              </p>
+              <div class="d-flex gap-2">
+                <a href="{% url 'theater_list' movie.id %}"
+                   class="btn btn-primary btn-sm flex-grow-1">🎟️ Book</a>
+                <a href="{% url 'movie_detail' movie.id %}"
+                   class="btn btn-danger btn-sm flex-grow-1">🎬 Trailer</a>
+              </div>
+            </div>
+          </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+          <div class="empty-state">
+            <div style="font-size:60px;">🎬</div>
+            <h4>No movies found</h4>
+            <p>Try adjusting your filters</p>
+            <a href="{% url 'movie_list' %}" class="btn btn-primary mt-2">Clear Filters</a>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+
+      <!-- Pagination -->
+      {% if page_obj.has_other_pages %}
+      <nav class="mt-4">
+        <ul class="pagination justify-content-center">
+          {% if page_obj.has_previous %}
+          <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.previous_page_number }}&sort={{ sort_by }}&search={{ search_query }}{% for g in selected_genres %}&genre={{ g }}{% endfor %}{% for l in selected_languages %}&language={{ l }}{% endfor %}">← Prev</a>
+          </li>
+          {% endif %}
+          {% for num in page_obj.paginator.page_range %}
+            {% if page_obj.number == num %}
+            <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+            <li class="page-item">
+              <a class="page-link" href="?page={{ num }}&sort={{ sort_by }}&search={{ search_query }}{% for g in selected_genres %}&genre={{ g }}{% endfor %}{% for l in selected_languages %}&language={{ l }}{% endfor %}">{{ num }}</a>
+            </li>
+            {% endif %}
+          {% endfor %}
+          {% if page_obj.has_next %}
+          <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.next_page_number }}&sort={{ sort_by }}&search={{ search_query }}{% for g in selected_genres %}&genre={{ g }}{% endfor %}{% for l in selected_languages %}&language={{ l }}{% endfor %}">Next →</a>
+          </li>
+          {% endif %}
+        </ul>
+      </nav>
+      {% endif %}
+
+    </div>
+  </div>
+</div>
+{% endblock %}
