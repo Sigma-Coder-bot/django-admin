@@ -5,7 +5,7 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('Movies', '0005_alter_movies_movie_options'),  # ← your last working migration
+        ('Movies', '0005_seatreservation_alter_booking_booked_at_and_more'),  # ← fixed
     ]
 
     operations = [
