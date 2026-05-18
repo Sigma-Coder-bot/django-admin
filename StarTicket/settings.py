@@ -8,7 +8,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Use environment variable on Render, fallback for local
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-c8aetlj(=vp90n@#yoc^&d(_6ivp(d!bv-4-f!r$lawptjzrwu')
 
-DEBUG = os.environ.get('DEBUG', 'False') == 'True'
+DEBUG = os.environ.get('DEBUG', 'False') == 'False'
 
 ALLOWED_HOSTS = ['localhost', '127.0.0.1', '.onrender.com']
 
@@ -149,3 +149,16 @@ RAZORPAY_KEY_ID = 'rzp_test_xxxxxxxxx'
 RAZORPAY_KEY_SECRET = 'xxxxxxxxxxxxx'
 
 RAZORPAY_WEBHOOK_SECRET = 'webhook_secret_here'
+
+ALLOWED_HOSTS = [
+    ".onrender.com",
+    "localhost",
+    "127.0.0.1"
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://django-starticket.onrender.com"
+]
+
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
