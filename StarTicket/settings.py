@@ -128,25 +128,18 @@ LOGGING = {
     },
 }
 
-# Cache Configuration — Redis for production, memory for local
+import os
+
+# In-memory cache (no Redis needed)
 CACHES = {
     'default': {
-        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
-        'LOCATION': os.environ.get('REDIS_URL', 'redis://localhost:6379/0'),
-        'TIMEOUT': 300,  # 5 minutes cache
-        'OPTIONS': {
-            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-        }
-    }
-} if os.environ.get('REDIS_URL') else {
-    'default': {
         'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'TIMEOUT': 300,
+        'TIMEOUT': 300,  # 5 minutes
     }
 }
 
-# Session Security — prevent privilege escalation
-SESSION_COOKIE_AGE = 3600  # 1 hour
-SESSION_COOKIE_SECURE = not os.environ.get('DEBUG', 'True') == 'True'
+# Session Security
+SESSION_COOKIE_AGE = 3600
 SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SECURE = False
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
