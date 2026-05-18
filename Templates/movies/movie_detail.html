@@ -10,24 +10,18 @@
         {% if embed_url %}
         <!-- Lazy loaded iframe prevents performance issues -->
         <div class="ratio ratio-16x9 trailer-wrapper">
-            <iframe
-                id="trailer-frame"
-                src=""
-                data-src="{{ embed_url }}"
-                title="{{ movie.name }} Trailer"
-                loading="lazy"
-                allowfullscreen
-                referrerpolicy="strict-origin-when-cross-origin"
+            <iframe id="trailer-frame" src="" data-src="{{ embed_url }}" title="{{ movie.name }} Trailer" loading="lazy"
+                allowfullscreen referrerpolicy="strict-origin-when-cross-origin"
                 sandbox="allow-scripts allow-same-origin allow-presentation"
-                style="border:0; width:100%; height:100%;">
+                style="display:none; border:0; width:100%; height:100%;">
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture">
+
             </iframe>
         </div>
 
         <!-- Fallback shown until user clicks play -->
-        <div id="trailer-placeholder" class="trailer-placeholder text-center" 
-             style="background:#000; height:400px; display:flex; 
-                    align-items:center; justify-content:center; cursor:pointer;"
-             onclick="loadTrailer()">
+        <div id="trailer-placeholder" class="trailer-placeholder text-center" style="background:#000; height:400px; display:flex; 
+                    align-items:center; justify-content:center; cursor:pointer;" onclick="loadTrailer()">
             <div>
                 <div style="font-size:60px;">▶</div>
                 <p style="color:white;">Click to load trailer</p>
@@ -39,8 +33,7 @@
 
         {% else %}
         <!-- Graceful fallback if no trailer available -->
-        <div class="alert alert-secondary text-center mt-3" 
-             style="height:200px; display:flex; 
+        <div class="alert alert-secondary text-center mt-3" style="height:200px; display:flex; 
                     align-items:center; justify-content:center;">
             <div>
                 <h5>🎬 Trailer Unavailable</h5>
@@ -67,10 +60,10 @@
     }
 
     // Handle iframe load error — fallback
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
         const frame = document.getElementById('trailer-frame');
         if (frame) {
-            frame.addEventListener('error', function() {
+            frame.addEventListener('error', function () {
                 const wrapper = document.querySelector('.trailer-wrapper');
                 if (wrapper) {
                     wrapper.innerHTML = `
@@ -88,6 +81,7 @@
     .trailer-wrapper iframe {
         display: none;
     }
+
     .trailer-placeholder:hover {
         opacity: 0.9;
     }

@@ -69,10 +69,29 @@ class Seat(models.Model):
         return f'{self.seat_number} in {self.theater.name}'
 
 class SeatReservation(models.Model):
-    seat = models.OneToOneField(Seat, on_delete=models.CASCADE, related_name='reservation')
+    seat = models.OneToOneField(
+        Seat,
+        on_delete=models.CASCADE,
+        related_name='reservation'
+    )
+
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     reserved_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField(db_index=True)
+
+    def is_expired(self):
+        return timezone.now() > self.expires_at
+
+    def __str__(self):
+        return f'Reservation by {self.user.username} for {self.seat.seat_number}'
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['seat'],
+                name='unique_active_seat_reservation'
+            )
+        ]
 
     def is_expired(self):
         return timezone.now() > self.expires_at
@@ -131,3 +150,8 @@ class Payment(models.Model):
 
     def __str__(self):
         return f'Payment {self.razorpay_order_id} - {self.status}'
+    
+    idempotency_key = models.UUIDField(
+    unique=True,
+    editable=False
+)

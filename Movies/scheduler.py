@@ -1,3 +1,6 @@
+from datetime import timedelta
+
+from Movies.models import Payment
 from apscheduler.schedulers.background import BackgroundScheduler
 from django_apscheduler.jobstores import DjangoJobStore
 from django.utils import timezone
@@ -33,3 +36,10 @@ def start():
         logger.info("Scheduler started")
     except Exception as e:
         logger.error(f"Scheduler failed to start: {e}")
+
+expired_payments = Payment.objects.filter(
+    status='pending',
+    created_at__lt=timezone.now() - timedelta(minutes=10)
+)
+
+expired_payments.update(status='timeout')

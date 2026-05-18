@@ -9,6 +9,6 @@ urlpatterns = [
     path('theater/<int:theater_id>/payment/', views.initiate_payment, name='initiate_payment'),
     path('payment/success/', views.payment_success, name='payment_success'),
     path('payment/failed/', views.payment_failed, name='payment_failed'),
-    path('payment/webhook/', views.razorpay_webhook, name='razorpay_webhook'),
+    path('razorpay/webhook/', views.razorpay_webhook, name='razorpay_webhook'),
     path('admin-dashboard/', views.admin_dashboard, name='admin_dashboard'),  # ← add this
 ]

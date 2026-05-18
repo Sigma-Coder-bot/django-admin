@@ -1,5 +1,6 @@
 import razorpay
-import uuid
+from django.conf import settings
+
 import os
 import json
 import hmac
@@ -250,139 +251,118 @@ def initiate_payment(request, theater_id):
     return redirect('book_seats', theater_id=theater_id)
 
 
-@login_required(login_url='/login/')
+@csrf_exempt
 def payment_success(request):
-    if request.method == 'POST':
-        razorpay_order_id = request.POST.get('razorpay_order_id')
+
+    if request.method == "POST":
+
         razorpay_payment_id = request.POST.get('razorpay_payment_id')
+        razorpay_order_id = request.POST.get('razorpay_order_id')
         razorpay_signature = request.POST.get('razorpay_signature')
 
-        try:
-            payment = Payment.objects.get(razorpay_order_id=razorpay_order_id)
-        except Payment.DoesNotExist:
-            messages.error(request, "Payment record not found!")
-            return redirect('home')
-
-        is_valid = verify_payment_signature(
-            razorpay_order_id, razorpay_payment_id, razorpay_signature
+        client = razorpay.Client(
+            auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET)
         )
 
-        if not is_valid:
-            payment.status = 'failed'
-            payment.save()
-            messages.error(request, "Payment verification failed!")
-            return redirect('home')
-
-        if payment.status == 'success':
-            messages.info(request, "Payment already processed!")
-            return redirect('profile')
+        params_dict = {
+            'razorpay_order_id': razorpay_order_id,
+            'razorpay_payment_id': razorpay_payment_id,
+            'razorpay_signature': razorpay_signature
+        }
 
         try:
-            with transaction.atomic():
-                for seat_id in payment.seats_data:
-                    seat = Seat.objects.select_for_update().get(id=seat_id)
-                    if seat.is_booked:
-                        continue
-                    booking = Booking.objects.create(
-                        user=request.user,
-                        seat=seat,
-                        movie=payment.theater.movie,
-                        theater=payment.theater,
-                    )
-                    seat.is_booked = True
-                    seat.save()
-                    if not payment.booking:
-                        payment.booking = booking
+            # VERIFY PAYMENT SIGNATURE
+            client.utility.verify_payment_signature(params_dict)
 
-                payment.razorpay_payment_id = razorpay_payment_id
-                payment.razorpay_signature = razorpay_signature
-                payment.status = 'success'
-                payment.save()
+        except razorpay.errors.SignatureVerificationError:
 
-                SeatReservation.objects.filter(
-                    seat_id__in=payment.seats_data
-                ).delete()
+            Payment.objects.filter(
+                razorpay_order_id=razorpay_order_id
+            ).update(status='failed')
 
-        except Exception as e:
-            payment.status = 'failed'
-            payment.save()
-            messages.error(request, f"Booking failed: {str(e)}")
+            messages.error(request, "Payment verification failed.")
             return redirect('home')
 
-        # Send confirmation email
-        from .email_utils import send_booking_confirmation_email
-        seat_numbers = []
-        for seat_id in payment.seats_data:
-            try:
-                seat = Seat.objects.get(id=seat_id)
-                seat_numbers.append(seat.seat_number)
-            except Seat.DoesNotExist:
-                pass
+        # PAYMENT VERIFIED
+        payment = Payment.objects.filter(
+            razorpay_order_id=razorpay_order_id
+        ).first()
 
-        send_booking_confirmation_email(
-            user_email=request.user.email,
-            user_name=request.user.get_full_name() or request.user.username,
-            movie_name=payment.theater.movie.name,
-            theater_name=payment.theater.name,
-            show_time=str(payment.theater.time.strftime('%d %b %Y, %I:%M %p')),
-            seat_numbers=seat_numbers,
-            amount=str(payment.amount),
-            payment_id=razorpay_payment_id,
-            booking_date=timezone.now().strftime('%d %b %Y, %I:%M %p'),
-        )
+        if payment and payment.status != 'success':
 
-        messages.success(request, "Payment successful! Seats booked!")
-        return redirect('profile')
+            payment.status = 'success'
+            payment.razorpay_payment_id = razorpay_payment_id
+            payment.save()
 
-    return redirect('home')
+            # CREATE BOOKINGS HERE
+
+        messages.success(request, "Payment successful!")
+        return redirect('home')
 
 
 def payment_failed(request):
     razorpay_order_id = request.GET.get('order_id')
+
     if razorpay_order_id:
-        Payment.objects.filter(
+        payment = Payment.objects.filter(
             razorpay_order_id=razorpay_order_id
-        ).update(status='failed')
+        ).first()
+
+        if payment:
+            payment.status = 'failed'
+            payment.save()
+
+            # Release reserved seats immediately
+            SeatReservation.objects.filter(
+                seat_id__in=payment.seats_data
+            ).delete()
+
     messages.error(request, "Payment failed! Please try again.")
     return redirect('home')
 
 
 @csrf_exempt
 def razorpay_webhook(request):
-    if request.method == 'POST':
-        webhook_secret = os.environ.get('RAZORPAY_WEBHOOK_SECRET', '')
-        webhook_signature = request.headers.get('X-Razorpay-Signature', '')
-        body = request.body
-        generated_signature = hmac.new(
-            webhook_secret.encode(),
+
+    webhook_secret = settings.RAZORPAY_WEBHOOK_SECRET
+
+    received_signature = request.headers.get('X-Razorpay-Signature')
+
+    client = razorpay.Client(
+        auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET)
+    )
+
+    body = request.body.decode('utf-8')
+
+    try:
+        client.utility.verify_webhook_signature(
             body,
-            hashlib.sha256
-        ).hexdigest()
+            received_signature,
+            webhook_secret
+        )
 
-        if not hmac.compare_digest(generated_signature, webhook_signature):
-            return HttpResponse(status=400)
+    except razorpay.errors.SignatureVerificationError:
+        return HttpResponse(status=400)
 
-        payload = json.loads(body)
-        event = payload.get('event')
+    payload = json.loads(body)
 
-        if event == 'payment.captured':
-            order_id = payload['payload']['payment']['entity']['order_id']
-            payment_id = payload['payload']['payment']['entity']['id']
-            payment = Payment.objects.filter(razorpay_order_id=order_id).first()
-            if payment and payment.status != 'success':
-                payment.razorpay_payment_id = payment_id
-                payment.status = 'success'
-                payment.save()
+    event = payload.get('event')
 
-        elif event == 'payment.failed':
-            order_id = payload['payload']['payment']['entity']['order_id']
-            Payment.objects.filter(
-                razorpay_order_id=order_id
-            ).update(status='failed')
+    if event == 'payment.captured':
 
-        return HttpResponse(status=200)
+        razorpay_order_id = payload['payload']['payment']['entity']['order_id']
 
-    return HttpResponse(status=405)
+        payment = Payment.objects.filter(
+            razorpay_order_id=razorpay_order_id
+        ).first()
+
+        # IDEMPOTENCY PROTECTION
+        if payment and payment.status != 'success':
+
+            payment.status = 'success'
+            payment.save()
+
+    return HttpResponse(status=200)
 
 
 @staff_member_required

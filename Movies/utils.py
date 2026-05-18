@@ -8,7 +8,7 @@ def get_youtube_embed_url(url):
     if not url:
         return None
     
-    pattern = r'(?:youtube\.com/watch\?v=|youtu\.be/)([a-zA-Z0-9_-]{11})'
+    pattern = r'(?:youtube\.com/watch\?v=|youtu\.be/)([A-Za-z0-9_-]{11})'
     match = re.search(pattern, url)
     
     if match:
